@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "notion-to-hoardbooru"
+version = "0.1.0"
+description = "Scripts to upload data from notion to hoardbooru"
+authors = ["Deer-Spangle <deer@spangle.org.uk>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+notion-client = "^2.2.1"
+pyszuru = "^0.3.1"
+requests = "^2.32.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
