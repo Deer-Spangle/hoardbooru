@@ -139,6 +139,7 @@ class CardUploader:
         logger.debug("Setting source for already uploaded posts: %s", new_source)
         # Add to previous posts
         for uploaded in self.results.values():
+            uploaded.to_upload.sources.add(new_source)
             add_source(uploaded.hpost, new_source)
 
     def _handle_new_parent(self, new_parent: pyszuru.Post) -> None:
@@ -147,6 +148,7 @@ class CardUploader:
         for uploaded in self.results.values():
             if new_parent.id_ == uploaded.hpost.id_:
                 continue
+            uploaded.to_upload.parent = new_parent
             set_relationship(uploaded.hpost, new_parent)
 
 
