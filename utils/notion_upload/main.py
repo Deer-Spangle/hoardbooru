@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
@@ -168,6 +169,7 @@ if __name__ == '__main__':
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     base_logger.addHandler(console_handler)
+    os.makedirs("logs", exist_ok=True)
     file_handler = TimedRotatingFileHandler("logs/notion_upload.log", when="midnight")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
