@@ -9,7 +9,7 @@ import pyszuru
 from notion_client import Client
 
 from utils.notion_upload.hoardbooru import HoardbooruTagType, HoardbooruTag, PostToUpload, create_pool, TagCache, \
-    upload_post, add_source, UploadedPost, set_relationship
+    upload_post, UploadedPost, update_post
 from utils.notion_upload.notion import mark_card_uploaded, Card
 
 logger = logging.getLogger(__name__)
@@ -135,21 +135,24 @@ class CardUploader:
             self.final_post_ids.append(hpost.id_)
 
     def _handle_new_source(self, new_source: str) -> None:
+        # Note source for new posts
         self.sources.add(new_source)
         logger.debug("Setting source for already uploaded posts: %s", new_source)
         # Add to previous posts
         for uploaded in self.results.values():
             uploaded.to_upload.sources.add(new_source)
-            add_source(uploaded.hpost, new_source)
+            update_post(self.uploader.tag_cache, uploaded.to_upload, uploaded.hpost)
 
     def _handle_new_parent(self, new_parent: pyszuru.Post) -> None:
+        # Note parent for new posts
         self.parent_post = new_parent
         logger.debug("Setting parent for already uploaded posts: ", new_parent)
+        # Set parent for previous posts
         for uploaded in self.results.values():
             if new_parent.id_ == uploaded.hpost.id_:
                 continue
             uploaded.to_upload.parent = new_parent
-            set_relationship(uploaded.hpost, new_parent)
+            update_post(self.uploader.tag_cache, uploaded.to_upload, uploaded.hpost)
 
 
 def main(config: dict) -> None:

@@ -147,31 +147,11 @@ def update_post(tag_cache: TagCache, post: PostToUpload, hpost: pyszuru.Post) ->
     ]
     hpost.tags = tags
     # Update parent relation
-    if post.parent:
+    if post.parent and post.parent.id_ != hpost.id_:
         if post.parent.id_ not in [p.id_ for p in hpost.relations]:
             hpost.relations.append(post.parent)
     # Update sources
     for source in post.sources:
         if source not in hpost.source:
             hpost.source.append(source)
-    hpost.push()
-
-
-
-def set_relationship(child: pyszuru.Post, parent: pyszuru.Post) -> None:
-    logger.debug("Setting parent of post %s to %s", child.id_, parent.id_)
-    child_relation_ids = [p.id_ for p in child.relations]
-    if parent.id_ in child_relation_ids:
-        logger.debug("Relationship already set")
-        return
-    child.relations.append(parent)
-    child.push()
-
-
-def add_source(hpost: pyszuru.Post, source: str) -> None:
-    logger.debug("Adding source to post %s: %s", hpost.id_, source)
-    if source in hpost.source:
-        logger.debug("Source already exists")
-        return
-    hpost.source.append(source)
     hpost.push()
