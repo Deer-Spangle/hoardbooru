@@ -55,9 +55,11 @@ class PostToUpload:
     def post_safety(self) -> str:
         return "unsafe" if self.is_nsfw else "safe"
 
-    @property
-    def all_tags(self) -> list[HoardbooruTag]:
-        return self.artist_tags + self.character_tags + self.owner_tags + self.meta_tags + self.misc_tags
+
+@dataclasses.dataclass
+class UploadedPost:
+    to_upload: PostToUpload
+    hpost: pyszuru.Post
 
 
 def create_pool(hoardbooru: pyszuru.API, title: str, post_ids: list[int]) -> None:
@@ -103,7 +105,7 @@ def link_to_post(hoardbooru_post: pyszuru.Post) -> str:
     return f"{scheme}://{domain}/post/{post_id}"
 
 
-def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload) -> int:
+def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload) -> pyszuru.Post:
     logger.debug("Downloading file from notion: %s", post.url)
     file_resp = requests.get(post.url)
     with tempfile.NamedTemporaryFile(suffix=f".{post.file_ext}", mode="wb", delete_on_close=False) as f:
@@ -129,7 +131,7 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
             if post.parent_id:  # TODO: notion source
                 exact_match.relations.append(post.parent_id)
             exact_match.push()
-            return exact_match.id_
+            return exact_match
         closest = min(match_results, key=lambda x: x.distance)
         logger.warning("Closest match has a distance of %s: %s", closest.distance, closest.post)
         choice = input("How to proceed?")
@@ -153,16 +155,23 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
             parent_hpost = hoardbooru.getPost(post.parent_id)
             hoardbooru_post.relations.append(parent_hpost)
     hoardbooru_post.push()
-    return hoardbooru_post.id_
+    return hoardbooru_post
 
 
-def set_parent_id(hoardbooru: pyszuru.API, posted_id: int, parent_id: int) -> None:
-    logger.debug("Setting parent of post %s to %s", posted_id, parent_id)
-    hpost = hoardbooru.getPost(posted_id)
-    hpost_relation_ids = [p.id_ for p in hpost.relations]
-    if parent_id in hpost_relation_ids:
-        logger.debug("Already set")
+def set_relationship(child: pyszuru.Post, parent: pyszuru.Post) -> None:
+    logger.debug("Setting parent of post %s to %s", child.id_, parent.id_)
+    child_relation_ids = [p.id_ for p in child.relations]
+    if parent.id_ in child_relation_ids:
+        logger.debug("Relationship already set")
         return
-    parent_hpost = hoardbooru.getPost(parent_id)
-    hpost.relations.append(parent_hpost)
+    child.relations.append(parent)
+    child.push()
+
+
+def add_source(hpost: pyszuru.Post, source: str) -> None:
+    logger.debug("Adding source to post %s: %s", hpost.id_, source)
+    if source in hpost.source:
+        logger.debug("Source already exists")
+        return
+    hpost.source.append(source)
     hpost.push()

@@ -8,7 +8,7 @@ import pyszuru
 from notion_client import Client
 
 from utils.notion_upload.hoardbooru import HoardbooruTagType, HoardbooruTag, PostToUpload, create_pool, TagCache, \
-    upload_post, set_parent_id
+    upload_post, add_source, UploadedPost, set_relationship
 from utils.notion_upload.notion import mark_card_uploaded, Card
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class Uploader:
             if next_token is None:
                 return results
 
-    def process_card(self, card: Card) -> dict[int, PostToUpload]:
+    def process_card(self, card: Card) -> dict[int, UploadedPost]:
         logger.info("Processing card: %s", card.title)
         logger.info("Card link: %s", card.url)
         # Gather tags
@@ -72,8 +72,8 @@ class Uploader:
         multiple_version = card.has_multiple_versions
         sources = [card.url]
         # Result and progressive initialisation
-        results: dict[int, PostToUpload] = {}
-        parent_id: Optional[int] = None
+        results: dict[int, UploadedPost] = {}
+        parent_post: Optional[pyszuru.Post] = None
         pool_post_ids: list[int] = []
         # Upload WIPs
         logger.info("Uploading WIPs")
@@ -88,11 +88,11 @@ class Uploader:
                 wip_url,
                 all_tags,
                 is_nsfw,
-                parent_id,
                 sources,
+                parent_post,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post)
-            results[post_id] = post
+            hpost = upload_post(self.hoardbooru, self.tag_cache, post)
+            results[hpost.id_] = UploadedPost(post, hpost)
         # Upload final files
         logger.info("Updating finals")
         for final in card.final_files:
@@ -106,22 +106,17 @@ class Uploader:
                 final_url,
                 all_tags,
                 is_nsfw,
-                parent_id,
                 sources,
+                parent_post,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post)
-
-            results[post_id] = post
-            if parent_id is None:
-                parent_id = post_id
+            hpost = upload_post(self.hoardbooru, self.tag_cache, post)
+            results[hpost.id_] = UploadedPost(post, hpost)
+            if parent_post is None:
+                parent_post = hpost
                 # Set parent for already uploaded posts
-                logger.debug("Setting parent for already uploaded wips")
-                for posted_id in results.keys():
-                    if parent_id == posted_id:
-                        continue
-                    set_parent_id(self.hoardbooru, posted_id, parent_id)
+                self._handle_new_parent(parent_post, results)
             # Add to pool list
-            pool_post_ids.append(post_id)
+            pool_post_ids.append(hpost.id_)
         # Create pool if applicable
         if multiple_version:
             # Create pool
@@ -129,6 +124,15 @@ class Uploader:
         mark_card_uploaded(self.notion, card.card_id)
         logger.info("Completed card: %s", card.url)
         return results
+
+    # noinspection PyMethodMayBeStatic
+    def _handle_new_parent(self, new_parent: pyszuru.Post, results_so_far: dict[int, UploadedPost]) -> None:
+        logger.debug("Setting parent for already uploaded posts: ", new_parent)
+        for uploaded in results_so_far.values():
+            if new_parent.id_ == uploaded.hpost.id_:
+                continue
+            set_relationship(uploaded.hpost, new_parent)
+
 
 
 def main(config: dict) -> None:
