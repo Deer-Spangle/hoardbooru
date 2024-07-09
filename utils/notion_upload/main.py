@@ -122,7 +122,7 @@ class CardUploader:
             all_tags,
             self.card.is_nsfw,
             self.parent_post,
-            list(self.sources),
+            self.sources,
         )
         hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
         self.results[hpost.id_] = UploadedPost(post, hpost)

@@ -43,7 +43,7 @@ class PostToUpload:
     all_tags: list[HoardbooruTag]
     is_nsfw: bool
     parent: Optional[pyszuru.Post]
-    sources: list[str]
+    sources: set[str]
 
     @property
     def file_ext(self) -> str:
