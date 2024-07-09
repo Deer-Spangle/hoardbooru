@@ -9,7 +9,7 @@ from notion_client import Client
 
 from utils.notion_upload.hoardbooru import HoardbooruTagType, HoardbooruTag, PostToUpload, create_pool, TagCache, \
     upload_post, set_parent_id
-from utils.notion_upload.notion import mark_card_uploaded
+from utils.notion_upload.notion import mark_card_uploaded, Card
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class Uploader:
         cards = self.list_cards(art_db_resp)
         logger.info(f"Found {len(cards)} cards")
         for card in cards:
-            self.process_card(card)
+            self.process_card(Card(card))
 
     def list_cards(self, db_resp: dict) -> list[dict]:
         next_token = None
@@ -54,38 +54,26 @@ class Uploader:
             if next_token is None:
                 return results
 
-    def process_card(self, card: dict) -> dict[int, PostToUpload]:
-        title = card["properties"]["Name"]["title"][0]["plain_text"]
-        logger.info("Processing card: %s", title)
-        logger.info("Card link: %s", card["url"])
-        artist_tags = [
-            HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS)
-            for artist in card["properties"]["Artist"]["multi_select"]
-        ]
-        character_tags = [
-            HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS)
-            for char in card["properties"]["Characters"]["multi_select"]
-        ]
-        owner_tags = [
-            HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS)
-            for owner in card["properties"]["Character owners"]["multi_select"]
-        ]
+    def process_card(self, card: Card) -> dict[int, PostToUpload]:
+        logger.info("Processing card: %s", card.title)
+        logger.info("Card link: %s", card.url)
+        artist_tags = [HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in card.artists]
+        character_tags = [HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS) for char in card.characters]
+        owner_tags = [HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS) for owner in card.owners]
         group_meta_tags = [HoardbooruTag("tagging:needs_check", HoardbooruTagType.META)]
         uploaded_to_tags = [
             HoardbooruTag("uploaded_to:" + site["name"].lower().replace(" ", "_"), HoardbooruTagType.META)
-            for site in card["properties"]["Posted to"]["multi_select"]
+            for site in card.posted_to
         ]
-        misc_tags = [
-            HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in card["properties"]["Tags"]["multi_select"]
-        ]
-        is_nsfw = card["properties"]["NSFW"]["checkbox"]
-        multiple_version = card["properties"]["Multiple versions/images"]["checkbox"]
+        misc_tags = [HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in card.tags]
+        is_nsfw = card.is_nsfw
+        multiple_version = card.has_multiple_versions
         # Result and progressive initialisation
         results: dict[int, PostToUpload] = {}
         parent_id: Optional[int] = None
         pool_post_ids: list[int] = []
         logger.info("Uploading WIPs")
-        for wip in card["properties"]["Attachments (WIPs)"]["files"]:
+        for wip in card.wip_files:
             if "file" not in wip:
                 logger.debug("Skipping non-file WIP")
                 continue
@@ -101,10 +89,10 @@ class Uploader:
                 is_nsfw,
                 parent_id,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card["url"])
+            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card.url)
             results[post_id] = post
         logger.info("Updating finals")
-        for final in card["properties"]["Final"]["files"]:
+        for final in card.final_files:
             if "file" not in final:
                 logger.debug("Skipping non-file final")
                 continue
@@ -120,7 +108,7 @@ class Uploader:
                 is_nsfw,
                 parent_id,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card["url"])
+            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card.url)
 
             results[post_id] = post
             if parent_id is None:
@@ -136,9 +124,9 @@ class Uploader:
         # Create pool if applicable
         if multiple_version:
             # Create pool
-            create_pool(self.hoardbooru, title, pool_post_ids)
-        mark_card_uploaded(self.notion, card["id"])
-        logger.info("Completed card: %s", card["url"])
+            create_pool(self.hoardbooru, card.title, pool_post_ids)
+        mark_card_uploaded(self.notion, card.card_id)
+        logger.info("Completed card: %s", card.url)
         return results
 
 
