@@ -70,7 +70,7 @@ class Uploader:
         # Other properties
         is_nsfw = card.is_nsfw
         multiple_version = card.has_multiple_versions
-        sources = [card.url]
+        sources = {card.url}
         # Result and progressive initialisation
         results: dict[int, UploadedPost] = {}
         parent_post: Optional[pyszuru.Post] = None
@@ -78,9 +78,16 @@ class Uploader:
         # Upload WIPs
         logger.info("Uploading WIPs")
         for wip in card.wip_files:
-            if "file" not in wip:
-                logger.debug("Skipping non-file WIP")
+            if wip["type"] == "external":
+                logger.info("Adding URL WIP as source")
+                new_source = wip["url"]
+                sources.add(new_source)
+                self._handle_new_source(new_source, results)
                 continue
+            # Check for other types of file
+            if "file" not in wip:
+                raise ValueError(f"Unrecognised type of file, not external or file: {wip['type']}")
+            # Handle normal files
             wip_url = wip["file"]["url"]
             meta_tags = group_meta_tags + [HoardbooruTag("status:wip", HoardbooruTagType.META)]
             all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
@@ -88,17 +95,24 @@ class Uploader:
                 wip_url,
                 all_tags,
                 is_nsfw,
-                sources,
                 parent_post,
+                list(sources),
             )
             hpost = upload_post(self.hoardbooru, self.tag_cache, post)
             results[hpost.id_] = UploadedPost(post, hpost)
         # Upload final files
         logger.info("Updating finals")
         for final in card.final_files:
-            if "file" not in final:
-                logger.debug("Skipping non-file final")
+            if final["type"] == "external":
+                logger.info("Adding URL WIP as source")
+                new_source = final["url"]
+                sources.add(new_source)
+                self._handle_new_source(new_source, results)
                 continue
+            # Check for other types of file
+            if "file" not in final:
+                raise ValueError(f"Unrecognised type of file, not external or file: {final['type']}")
+            # Handle normal files
             final_url = final["file"]["url"]
             meta_tags = group_meta_tags + uploaded_to_tags + [HoardbooruTag("status:final", HoardbooruTagType.META)]
             all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
@@ -106,8 +120,8 @@ class Uploader:
                 final_url,
                 all_tags,
                 is_nsfw,
-                sources,
                 parent_post,
+                list(sources),
             )
             hpost = upload_post(self.hoardbooru, self.tag_cache, post)
             results[hpost.id_] = UploadedPost(post, hpost)
@@ -124,6 +138,13 @@ class Uploader:
         mark_card_uploaded(self.notion, card.card_id)
         logger.info("Completed card: %s", card.url)
         return results
+
+    # noinspection PyMethodMayBeStatic
+    def _handle_new_source(self, new_source: str, results_so_far: dict[int, UploadedPost]) -> None:
+        logger.debug("Setting source for alreadz uploaded posts: %s", new_source)
+        # Add to previous posts
+        for uploaded in results_so_far.values():
+            add_source(uploaded.hpost, new_source)
 
     # noinspection PyMethodMayBeStatic
     def _handle_new_parent(self, new_parent: pyszuru.Post, results_so_far: dict[int, UploadedPost]) -> None:
