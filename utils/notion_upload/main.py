@@ -26,7 +26,7 @@ class Uploader:
         cards = self.list_cards(art_db_resp)
         logger.info(f"Found {len(cards)} cards")
         for card in cards:
-            self.card_to_hoardbooru_posts(card)
+            self.process_card(card)
 
     def list_cards(self, db_resp: dict) -> list[dict]:
         next_token = None
@@ -54,7 +54,7 @@ class Uploader:
             if next_token is None:
                 return results
 
-    def card_to_hoardbooru_posts(self, card: dict) -> dict[int, PostToUpload]:
+    def process_card(self, card: dict) -> dict[int, PostToUpload]:
         title = card["properties"]["Name"]["title"][0]["plain_text"]
         logger.info("Processing card: %s", title)
         logger.info("Card link: %s", card["url"])
