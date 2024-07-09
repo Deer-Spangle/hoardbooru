@@ -57,6 +57,7 @@ class Uploader:
     def process_card(self, card: Card) -> dict[int, PostToUpload]:
         logger.info("Processing card: %s", card.title)
         logger.info("Card link: %s", card.url)
+        # Gather tags
         artist_tags = [HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in card.artists]
         character_tags = [HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS) for char in card.characters]
         owner_tags = [HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS) for owner in card.owners]
@@ -66,12 +67,15 @@ class Uploader:
             for site in card.posted_to
         ]
         misc_tags = [HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in card.tags]
+        # Other properties
         is_nsfw = card.is_nsfw
         multiple_version = card.has_multiple_versions
+        sources = [card.url]
         # Result and progressive initialisation
         results: dict[int, PostToUpload] = {}
         parent_id: Optional[int] = None
         pool_post_ids: list[int] = []
+        # Upload WIPs
         logger.info("Uploading WIPs")
         for wip in card.wip_files:
             if "file" not in wip:
@@ -88,9 +92,11 @@ class Uploader:
                 misc_tags,
                 is_nsfw,
                 parent_id,
+                sources,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card.url)
+            post_id = upload_post(self.hoardbooru, self.tag_cache, post)
             results[post_id] = post
+        # Upload final files
         logger.info("Updating finals")
         for final in card.final_files:
             if "file" not in final:
@@ -107,8 +113,9 @@ class Uploader:
                 misc_tags,
                 is_nsfw,
                 parent_id,
+                sources,
             )
-            post_id = upload_post(self.hoardbooru, self.tag_cache, post, card.url)
+            post_id = upload_post(self.hoardbooru, self.tag_cache, post)
 
             results[post_id] = post
             if parent_id is None:

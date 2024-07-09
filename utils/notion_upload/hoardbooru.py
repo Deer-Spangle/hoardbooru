@@ -47,6 +47,7 @@ class PostToUpload:
     misc_tags: list[HoardbooruTag]
     is_nsfw: bool
     parent_id: Optional[int]
+    sources: list[str]
 
     @property
     def file_ext(self) -> str:
@@ -106,7 +107,7 @@ def link_to_post(hoardbooru_post: pyszuru.Post) -> str:
     return f"{scheme}://{domain}/post/{post_id}"
 
 
-def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload, notion_url: str) -> int:
+def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload) -> int:
     logger.debug("Downloading file from notion: %s", post.url)
     file_resp = requests.get(post.url)
     with tempfile.NamedTemporaryFile(suffix=f".{post.file_ext}", mode="wb", delete_on_close=False) as f:
@@ -146,9 +147,10 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
         tag_cache.get_tag(tag) for tag in post.all_tags
     ]
     hoardbooru_post.tags = tags
-    if notion_url not in hoardbooru_post.source:
-        logger.debug("Adding notion URL to sources")
-        hoardbooru_post.source.append(notion_url)
+    for source in post.sources:
+        if source not in hoardbooru_post.source:
+            logger.debug("Adding URL to sources: %s", source)
+            hoardbooru_post.source.append(source)
     if post.parent_id:
         if post.parent_id not in [p.id_ for p in hoardbooru_post.relations]:
             logger.debug("Setting parent ID")
