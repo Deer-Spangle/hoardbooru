@@ -100,9 +100,10 @@ class CardUploader:
         ]
 
     def _upload_file(self, file_data: dict, is_final: bool) -> Optional[UploadedPost]:
+        logger.info("Handling notion file data of type: %s", file_data["type"])
         if file_data["type"] == "external":
             logger.info("Adding external file URL as source")
-            new_source = file_data["url"]
+            new_source = file_data["external"]["url"]
             self._handle_new_source(new_source)
             return
         # Check for other types of file
