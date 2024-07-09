@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 import pyszuru
@@ -161,7 +162,15 @@ def main(config: dict) -> None:
 
 
 if __name__ == '__main__':
-    logger.addHandler(logging.StreamHandler(sys.stderr))
+    formatter = logging.Formatter("{asctime}:{levelname}:{name}:{message}", style="{")
+    base_logger = logging.getLogger()
+    base_logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    base_logger.addHandler(console_handler)
+    file_handler = TimedRotatingFileHandler("logs/notion_upload.log", when="midnight")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)
     with open("config.json", "r") as fc:
         c = json.load(fc)
