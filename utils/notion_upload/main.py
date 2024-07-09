@@ -13,6 +13,21 @@ from utils.notion_upload.notion import mark_card_uploaded
 logger = logging.getLogger(__name__)
 
 
+class Uploader:
+    def __init__(self, notion: Client, hoardbooru: pyszuru.API, notion_db_id: str) -> None:
+        self.notion = notion
+        self.hoardbooru = hoardbooru
+        self.notion_db_id = notion_db_id
+        self.tag_cache = TagCache(hoardbooru)
+
+    def run(self) -> None:
+        art_db_resp = self.notion.databases.retrieve(self.notion_db_id)
+        cards = list_cards(self.notion, art_db_resp)
+        logger.info(f"Found {len(cards)} cards")
+        for card in cards:
+            card_to_hoardbooru_posts(self.notion, self.hoardbooru, self.tag_cache, card)
+
+
 def list_cards(notion: Client, db_resp: dict) -> list[dict]:
     next_token = None
     results = []
@@ -140,12 +155,8 @@ def main(config: dict) -> None:
         username=config["hoardbooru"]["username"],
         token=config["hoardbooru"]["token"],
     )
-    tag_cache = TagCache(hoardbooru)
-    art_db_resp = notion.databases.retrieve(config["notion"]["art_db_id"])
-    cards = list_cards(notion, art_db_resp)
-    logger.info(f"Found {len(cards)} cards")
-    for card in cards:
-        card_to_hoardbooru_posts(notion, hoardbooru, tag_cache, card)
+    uploader = Uploader(notion, hoardbooru, config["notion"]["art_db_id"])
+    uploader.run()
     logger.info("Complete")
 
 
