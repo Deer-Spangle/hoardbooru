@@ -23,37 +23,36 @@ class Uploader:
 
     def run(self) -> None:
         art_db_resp = self.notion.databases.retrieve(self.notion_db_id)
-        cards = list_cards(self.notion, art_db_resp)
+        cards = self.list_cards(art_db_resp)
         logger.info(f"Found {len(cards)} cards")
         for card in cards:
             card_to_hoardbooru_posts(self.notion, self.hoardbooru, self.tag_cache, card)
 
-
-def list_cards(notion: Client, db_resp: dict) -> list[dict]:
-    next_token = None
-    results = []
-    while True:
-        logger.debug("Fetching a page of art results")
-        resp = notion.databases.query(
-            db_resp["id"],
-            start_cursor=next_token,
-            filter={
-                "property": "Uploaded to hoardbooru",
-                "checkbox": {
-                    "equals": False
-                }
-            },
-            sorts=[
-                {
-                    "property": "Card created",
-                    "direction": "ascending",
-                }
-            ]
-        )
-        results += resp["results"]
-        next_token = resp.get("next_cursor")
-        if next_token is None:
-            return results
+    def list_cards(self, db_resp: dict) -> list[dict]:
+        next_token = None
+        results = []
+        while True:
+            logger.debug("Fetching a page of art results")
+            resp = self.notion.databases.query(
+                db_resp["id"],
+                start_cursor=next_token,
+                filter={
+                    "property": "Uploaded to hoardbooru",
+                    "checkbox": {
+                        "equals": False
+                    }
+                },
+                sorts=[
+                    {
+                        "property": "Card created",
+                        "direction": "ascending",
+                    }
+                ]
+            )
+            results += resp["results"]
+            next_token = resp.get("next_cursor")
+            if next_token is None:
+                return results
 
 
 def card_to_hoardbooru_posts(
