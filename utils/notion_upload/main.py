@@ -61,6 +61,8 @@ class CardUploader:
         self.uploader = uploader
         self.card = card
         self.results: dict[int, UploadedPost] = {}
+        self.parent_post: Optional[UploadedPost] = None
+        self.sources: set[str] = {self.card.url}
 
     def run(self) -> dict[int, UploadedPost]:
         logger.info("Processing card: %s", self.card.title)
@@ -72,10 +74,6 @@ class CardUploader:
             for site in self.card.posted_to
         ]
         # Other properties
-        sources = {self.card.url}
-        # Result and progressive initialisation
-        results: dict[int, UploadedPost] = {}
-        parent_post: Optional[pyszuru.Post] = None
         pool_post_ids: list[int] = []
         # Upload WIPs
         logger.info("Uploading WIPs")
@@ -83,8 +81,8 @@ class CardUploader:
             if wip["type"] == "external":
                 logger.info("Adding URL WIP as source")
                 new_source = wip["url"]
-                sources.add(new_source)
-                self._handle_new_source(new_source, results)
+                self.sources.add(new_source)
+                self._handle_new_source(new_source, self.results)
                 continue
             # Check for other types of file
             if "file" not in wip:
@@ -97,19 +95,19 @@ class CardUploader:
                 wip_url,
                 all_tags,
                 self.card.is_nsfw,
-                parent_post,
-                list(sources),
+                self.parent_post,
+                list(self.sources),
             )
             hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
-            results[hpost.id_] = UploadedPost(post, hpost)
+            self.results[hpost.id_] = UploadedPost(post, hpost)
         # Upload final files
         logger.info("Updating finals")
         for final in self.card.final_files:
             if final["type"] == "external":
                 logger.info("Adding URL WIP as source")
                 new_source = final["url"]
-                sources.add(new_source)
-                self._handle_new_source(new_source, results)
+                self.sources.add(new_source)
+                self._handle_new_source(new_source, self.results)
                 continue
             # Check for other types of file
             if "file" not in final:
@@ -122,15 +120,15 @@ class CardUploader:
                 final_url,
                 all_tags,
                 self.card.is_nsfw,
-                parent_post,
-                list(sources),
+                self.parent_post,
+                list(self.sources),
             )
             hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
-            results[hpost.id_] = UploadedPost(post, hpost)
-            if parent_post is None:
-                parent_post = hpost
+            self.results[hpost.id_] = UploadedPost(post, hpost)
+            if self.parent_post is None:
+                self.parent_post = hpost
                 # Set parent for already uploaded posts
-                self._handle_new_parent(parent_post, results)
+                self._handle_new_parent(self.parent_post, self.results)
             # Add to pool list
             pool_post_ids.append(hpost.id_)
         # Create pool if applicable
@@ -139,7 +137,7 @@ class CardUploader:
             create_pool(self.uploader.hoardbooru, self.card.title, pool_post_ids)
         mark_card_uploaded(self.uploader.notion, self.card.card_id)
         logger.info("Completed card: %s", self.card.url)
-        return results
+        return self.results
 
     def _base_tags(self) -> list[HoardbooruTag]:
         artist_tags = [HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in self.card.artists]

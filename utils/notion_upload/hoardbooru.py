@@ -42,7 +42,7 @@ class PostToUpload:
     url: str
     all_tags: list[HoardbooruTag]
     is_nsfw: bool
-    parent_id: Optional[int]
+    parent: Optional[pyszuru.Post]
     sources: list[str]
 
     @property
@@ -128,8 +128,8 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
                 tag_cache.get_tag(tag) for tag in post.all_tags
             ]
             exact_match.tags = tags
-            if post.parent_id:  # TODO: notion source
-                exact_match.relations.append(post.parent_id)
+            if post.parent:
+                exact_match.relations.append(post.parent)
             exact_match.push()
             return exact_match
         closest = min(match_results, key=lambda x: x.distance)
@@ -149,11 +149,10 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
         if source not in hoardbooru_post.source:
             logger.debug("Adding URL to sources: %s", source)
             hoardbooru_post.source.append(source)
-    if post.parent_id:
-        if post.parent_id not in [p.id_ for p in hoardbooru_post.relations]:
-            logger.debug("Setting parent ID")
-            parent_hpost = hoardbooru.getPost(post.parent_id)
-            hoardbooru_post.relations.append(parent_hpost)
+    if post.parent:
+        if post.parent.id_ not in [p.id_ for p in hoardbooru_post.relations]:
+            logger.debug("Setting parent relation")
+            hoardbooru_post.relations.append(post.parent)
     hoardbooru_post.push()
     return hoardbooru_post
 
