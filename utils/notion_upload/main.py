@@ -40,18 +40,26 @@ def list_cards(notion: Client, db_resp: dict) -> list[dict]:
             return results
 
 
-def card_to_hoardbooru_posts(notion: Client, hoardbooru: pyszuru.API, tag_cache: TagCache, card: dict) -> dict[int, PostToUpload]:
+def card_to_hoardbooru_posts(
+        notion: Client,
+        hoardbooru: pyszuru.API,
+        tag_cache: TagCache,
+        card: dict
+) -> dict[int, PostToUpload]:
     title = card["properties"]["Name"]["title"][0]["plain_text"]
     logger.info("Processing card: %s", title)
     logger.info("Card link: %s", card["url"])
     artist_tags = [
-        HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in card["properties"]["Artist"]["multi_select"]
+        HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS)
+        for artist in card["properties"]["Artist"]["multi_select"]
     ]
     character_tags = [
-        HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS) for char in card["properties"]["Characters"]["multi_select"]
+        HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS)
+        for char in card["properties"]["Characters"]["multi_select"]
     ]
     owner_tags = [
-        HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS) for owner in card["properties"]["Character owners"]["multi_select"]
+        HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS)
+        for owner in card["properties"]["Character owners"]["multi_select"]
     ]
     group_meta_tags = [HoardbooruTag("tagging:needs_check", HoardbooruTagType.META)]
     uploaded_to_tags = [

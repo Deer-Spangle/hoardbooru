@@ -65,6 +65,7 @@ class PostToUpload:
 
 def create_pool(hoardbooru: pyszuru.API, title: str, post_ids: list[int]) -> None:
     logger.debug("Creating hoardbooru pool: %s", title)
+    # noinspection PyProtectedMember
     hoardbooru._call(
         "POST",
         ["pool"],
@@ -88,7 +89,7 @@ class TagCache:
         logger.debug("Fetching tag object: %s", tag.name_clean)
         try:
             htag = self.api.getTag(tag.name_clean)
-        except pyszuru.SzurubooruHTTPError as e:
+        except pyszuru.SzurubooruHTTPError:
             logger.debug("Creating new tag: %s", tag.name_clean)
             htag = self.api.createTag(tag.name_clean)
         htag.category = tag.type_clean
@@ -97,6 +98,7 @@ class TagCache:
         return htag
 
 
+# noinspection PyProtectedMember
 def link_to_post(hoardbooru_post: pyszuru.Post) -> str:
     scheme = hoardbooru_post.api._api_scheme
     domain = hoardbooru_post.api._url_netloc
