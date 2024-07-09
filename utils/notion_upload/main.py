@@ -141,7 +141,7 @@ class Uploader:
 
     # noinspection PyMethodMayBeStatic
     def _handle_new_source(self, new_source: str, results_so_far: dict[int, UploadedPost]) -> None:
-        logger.debug("Setting source for alreadz uploaded posts: %s", new_source)
+        logger.debug("Setting source for already uploaded posts: %s", new_source)
         # Add to previous posts
         for uploaded in results_so_far.values():
             add_source(uploaded.hpost, new_source)
