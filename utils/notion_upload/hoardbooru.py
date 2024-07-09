@@ -123,14 +123,7 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
         if exact_matches:
             exact_match = exact_matches[0].post
             logger.error("Found an exact match!: %s", link_to_post(exact_match))
-            logger.info("Updating post")
-            tags = [
-                tag_cache.get_tag(tag) for tag in post.all_tags
-            ]
-            exact_match.tags = tags
-            if post.parent:
-                exact_match.relations.append(post.parent)
-            exact_match.push()
+            update_post(tag_cache, post, exact_match)
             return exact_match
         closest = min(match_results, key=lambda x: x.distance)
         logger.warning("Closest match has a distance of %s: %s", closest.distance, closest.post)
@@ -140,21 +133,29 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
     logger.debug("Creating hoardbooru post")
     hoardbooru_post = hoardbooru.createPost(file_token, post.post_safety)
     logger.info("Created hoardbooru post: %s", link_to_post(hoardbooru_post))
-    logger.debug("Adding tags")
+    update_post(tag_cache, post, hoardbooru_post)
+    return hoardbooru_post
+
+
+def update_post(tag_cache: TagCache, post: PostToUpload, hpost: pyszuru.Post) -> None:
+    logger.info("Updating post")
+    # Update safety
+    hpost.safety = post.post_safety
+    # Update tags
     tags = [
         tag_cache.get_tag(tag) for tag in post.all_tags
     ]
-    hoardbooru_post.tags = tags
-    for source in post.sources:
-        if source not in hoardbooru_post.source:
-            logger.debug("Adding URL to sources: %s", source)
-            hoardbooru_post.source.append(source)
+    hpost.tags = tags
+    # Update parent relation
     if post.parent:
-        if post.parent.id_ not in [p.id_ for p in hoardbooru_post.relations]:
-            logger.debug("Setting parent relation")
-            hoardbooru_post.relations.append(post.parent)
-    hoardbooru_post.push()
-    return hoardbooru_post
+        if post.parent.id_ not in [p.id_ for p in hpost.relations]:
+            hpost.relations.append(post.parent)
+    # Update sources
+    for source in post.sources:
+        if source not in hpost.source:
+            hpost.source.append(source)
+    hpost.push()
+
 
 
 def set_relationship(child: pyszuru.Post, parent: pyszuru.Post) -> None:
