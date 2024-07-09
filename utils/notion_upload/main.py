@@ -63,78 +63,23 @@ class CardUploader:
         self.results: dict[int, UploadedPost] = {}
         self.parent_post: Optional[UploadedPost] = None
         self.sources: set[str] = {self.card.url}
+        self.final_post_ids: list[int] = []
 
     def run(self) -> dict[int, UploadedPost]:
         logger.info("Processing card: %s", self.card.title)
         logger.info("Card link: %s", self.card.url)
-        # Gather tags
-        base_tags = self._base_tags()
-        uploaded_to_tags = [
-            HoardbooruTag("uploaded_to:" + site["name"].lower().replace(" ", "_"), HoardbooruTagType.META)
-            for site in self.card.posted_to
-        ]
-        # Other properties
-        pool_post_ids: list[int] = []
         # Upload WIPs
         logger.info("Uploading WIPs")
         for wip in self.card.wip_files:
-            if wip["type"] == "external":
-                logger.info("Adding URL WIP as source")
-                new_source = wip["url"]
-                self.sources.add(new_source)
-                self._handle_new_source(new_source, self.results)
-                continue
-            # Check for other types of file
-            if "file" not in wip:
-                raise ValueError(f"Unrecognised type of file, not external or file: {wip['type']}")
-            # Handle normal files
-            wip_url = wip["file"]["url"]
-            wip_tags = [HoardbooruTag("status:wip", HoardbooruTagType.META)]
-            all_tags = base_tags + wip_tags
-            post = PostToUpload(
-                wip_url,
-                all_tags,
-                self.card.is_nsfw,
-                self.parent_post,
-                list(self.sources),
-            )
-            hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
-            self.results[hpost.id_] = UploadedPost(post, hpost)
+            self._upload_file(wip, False)
         # Upload final files
         logger.info("Updating finals")
         for final in self.card.final_files:
-            if final["type"] == "external":
-                logger.info("Adding URL WIP as source")
-                new_source = final["url"]
-                self.sources.add(new_source)
-                self._handle_new_source(new_source, self.results)
-                continue
-            # Check for other types of file
-            if "file" not in final:
-                raise ValueError(f"Unrecognised type of file, not external or file: {final['type']}")
-            # Handle normal files
-            final_url = final["file"]["url"]
-            final_tags = uploaded_to_tags + [HoardbooruTag("status:final", HoardbooruTagType.META)]
-            all_tags = base_tags + final_tags
-            post = PostToUpload(
-                final_url,
-                all_tags,
-                self.card.is_nsfw,
-                self.parent_post,
-                list(self.sources),
-            )
-            hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
-            self.results[hpost.id_] = UploadedPost(post, hpost)
-            if self.parent_post is None:
-                self.parent_post = hpost
-                # Set parent for already uploaded posts
-                self._handle_new_parent(self.parent_post, self.results)
-            # Add to pool list
-            pool_post_ids.append(hpost.id_)
+            self._upload_file(final, True)
         # Create pool if applicable
         if self.card.has_multiple_versions:
-            # Create pool
-            create_pool(self.uploader.hoardbooru, self.card.title, pool_post_ids)
+            create_pool(self.uploader.hoardbooru, self.card.title, self.final_post_ids)
+        # Mark the notion card as complete
         mark_card_uploaded(self.uploader.notion, self.card.card_id)
         logger.info("Completed card: %s", self.card.url)
         return self.results
@@ -147,17 +92,58 @@ class CardUploader:
         misc_tags = [HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in self.card.tags]
         return artist_tags + character_tags + owner_tags + group_meta_tags + misc_tags
 
-    # noinspection PyMethodMayBeStatic
-    def _handle_new_source(self, new_source: str, results_so_far: dict[int, UploadedPost]) -> None:
+    def _upload_destination_tags(self) -> list[HoardbooruTag]:
+        return [
+            HoardbooruTag("uploaded_to:" + site["name"].lower().replace(" ", "_"), HoardbooruTagType.META)
+            for site in self.card.posted_to
+        ]
+
+    def _upload_file(self, file_data: dict, is_final: bool) -> Optional[UploadedPost]:
+        if file_data["type"] == "external":
+            logger.info("Adding external file URL as source")
+            new_source = file_data["url"]
+            self._handle_new_source(new_source)
+            return
+        # Check for other types of file
+        if "file" not in file_data:
+            raise ValueError(f"Unrecognised type of file, not external or file: {file_data['type']}")
+        # Handle normal files
+        file_url = file_data["file"]["url"]
+        # Generate the full tag list
+        base_tags = self._base_tags()
+        status_tags = [HoardbooruTag("status:wip", HoardbooruTagType.META)]
+        if is_final:
+            status_tags = self._upload_destination_tags() + [HoardbooruTag("status:final", HoardbooruTagType.META)]
+        all_tags = base_tags + status_tags
+        # Create the post on hoardbooru
+        post = PostToUpload(
+            file_url,
+            all_tags,
+            self.card.is_nsfw,
+            self.parent_post,
+            list(self.sources),
+        )
+        hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
+        self.results[hpost.id_] = UploadedPost(post, hpost)
+        # Set parent and pool IDs if it's a "final" file
+        if is_final:
+            if self.parent_post is None:
+                # Set parent for already uploaded posts
+                self._handle_new_parent(hpost)
+                # Add to pool list
+            self.final_post_ids.append(hpost.id_)
+
+    def _handle_new_source(self, new_source: str) -> None:
+        self.sources.add(new_source)
         logger.debug("Setting source for already uploaded posts: %s", new_source)
         # Add to previous posts
-        for uploaded in results_so_far.values():
+        for uploaded in self.results.values():
             add_source(uploaded.hpost, new_source)
 
-    # noinspection PyMethodMayBeStatic
-    def _handle_new_parent(self, new_parent: pyszuru.Post, results_so_far: dict[int, UploadedPost]) -> None:
+    def _handle_new_parent(self, new_parent: pyszuru.Post) -> None:
+        self.parent_post = new_parent
         logger.debug("Setting parent for already uploaded posts: ", new_parent)
-        for uploaded in results_so_far.values():
+        for uploaded in self.results.values():
             if new_parent.id_ == uploaded.hpost.id_:
                 continue
             set_relationship(uploaded.hpost, new_parent)
