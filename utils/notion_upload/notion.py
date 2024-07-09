@@ -3,6 +3,7 @@ import logging
 from notion_client import Client
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def mark_card_uploaded(notion: Client, card_id: str) -> None:

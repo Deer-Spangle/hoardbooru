@@ -9,6 +9,7 @@ import requests
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class HoardbooruTagType(enum.Enum):
