@@ -26,7 +26,8 @@ class Uploader:
         cards = self.list_cards(art_db_resp)
         logger.info(f"Found {len(cards)} cards")
         for card in cards:
-            self.process_card(Card(card))
+            card_uploader = CardUploader(self, Card(card))
+            card_uploader.run()
 
     def list_cards(self, db_resp: dict) -> list[dict]:
         next_token = None
@@ -54,30 +55,31 @@ class Uploader:
             if next_token is None:
                 return results
 
-    def process_card(self, card: Card) -> dict[int, UploadedPost]:
-        logger.info("Processing card: %s", card.title)
-        logger.info("Card link: %s", card.url)
+
+class CardUploader:
+    def __init__(self, uploader: Uploader, card: Card) -> None:
+        self.uploader = uploader
+        self.card = card
+        self.results: dict[int, UploadedPost] = {}
+
+    def run(self) -> dict[int, UploadedPost]:
+        logger.info("Processing card: %s", self.card.title)
+        logger.info("Card link: %s", self.card.url)
         # Gather tags
-        artist_tags = [HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in card.artists]
-        character_tags = [HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS) for char in card.characters]
-        owner_tags = [HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS) for owner in card.owners]
-        group_meta_tags = [HoardbooruTag("tagging:needs_check", HoardbooruTagType.META)]
+        base_tags = self._base_tags()
         uploaded_to_tags = [
             HoardbooruTag("uploaded_to:" + site["name"].lower().replace(" ", "_"), HoardbooruTagType.META)
-            for site in card.posted_to
+            for site in self.card.posted_to
         ]
-        misc_tags = [HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in card.tags]
         # Other properties
-        is_nsfw = card.is_nsfw
-        multiple_version = card.has_multiple_versions
-        sources = {card.url}
+        sources = {self.card.url}
         # Result and progressive initialisation
         results: dict[int, UploadedPost] = {}
         parent_post: Optional[pyszuru.Post] = None
         pool_post_ids: list[int] = []
         # Upload WIPs
         logger.info("Uploading WIPs")
-        for wip in card.wip_files:
+        for wip in self.card.wip_files:
             if wip["type"] == "external":
                 logger.info("Adding URL WIP as source")
                 new_source = wip["url"]
@@ -89,20 +91,20 @@ class Uploader:
                 raise ValueError(f"Unrecognised type of file, not external or file: {wip['type']}")
             # Handle normal files
             wip_url = wip["file"]["url"]
-            meta_tags = group_meta_tags + [HoardbooruTag("status:wip", HoardbooruTagType.META)]
-            all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
+            wip_tags = [HoardbooruTag("status:wip", HoardbooruTagType.META)]
+            all_tags = base_tags + wip_tags
             post = PostToUpload(
                 wip_url,
                 all_tags,
-                is_nsfw,
+                self.card.is_nsfw,
                 parent_post,
                 list(sources),
             )
-            hpost = upload_post(self.hoardbooru, self.tag_cache, post)
+            hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
             results[hpost.id_] = UploadedPost(post, hpost)
         # Upload final files
         logger.info("Updating finals")
-        for final in card.final_files:
+        for final in self.card.final_files:
             if final["type"] == "external":
                 logger.info("Adding URL WIP as source")
                 new_source = final["url"]
@@ -114,16 +116,16 @@ class Uploader:
                 raise ValueError(f"Unrecognised type of file, not external or file: {final['type']}")
             # Handle normal files
             final_url = final["file"]["url"]
-            meta_tags = group_meta_tags + uploaded_to_tags + [HoardbooruTag("status:final", HoardbooruTagType.META)]
-            all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
+            final_tags = uploaded_to_tags + [HoardbooruTag("status:final", HoardbooruTagType.META)]
+            all_tags = base_tags + final_tags
             post = PostToUpload(
                 final_url,
                 all_tags,
-                is_nsfw,
+                self.card.is_nsfw,
                 parent_post,
                 list(sources),
             )
-            hpost = upload_post(self.hoardbooru, self.tag_cache, post)
+            hpost = upload_post(self.uploader.hoardbooru, self.uploader.tag_cache, post)
             results[hpost.id_] = UploadedPost(post, hpost)
             if parent_post is None:
                 parent_post = hpost
@@ -132,12 +134,20 @@ class Uploader:
             # Add to pool list
             pool_post_ids.append(hpost.id_)
         # Create pool if applicable
-        if multiple_version:
+        if self.card.has_multiple_versions:
             # Create pool
-            create_pool(self.hoardbooru, card.title, pool_post_ids)
-        mark_card_uploaded(self.notion, card.card_id)
-        logger.info("Completed card: %s", card.url)
+            create_pool(self.uploader.hoardbooru, self.card.title, pool_post_ids)
+        mark_card_uploaded(self.uploader.notion, self.card.card_id)
+        logger.info("Completed card: %s", self.card.url)
         return results
+
+    def _base_tags(self) -> list[HoardbooruTag]:
+        artist_tags = [HoardbooruTag(artist["name"], HoardbooruTagType.ARTISTS) for artist in self.card.artists]
+        character_tags = [HoardbooruTag(char["name"], HoardbooruTagType.CHARACTERS) for char in self.card.characters]
+        owner_tags = [HoardbooruTag(owner["name"], HoardbooruTagType.OWNERS) for owner in self.card.owners]
+        group_meta_tags = [HoardbooruTag("tagging:needs_check", HoardbooruTagType.META)]
+        misc_tags = [HoardbooruTag(tag["name"], HoardbooruTagType.DEFAULT) for tag in self.card.tags]
+        return artist_tags + character_tags + owner_tags + group_meta_tags + misc_tags
 
     # noinspection PyMethodMayBeStatic
     def _handle_new_source(self, new_source: str, results_so_far: dict[int, UploadedPost]) -> None:
