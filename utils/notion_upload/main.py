@@ -146,7 +146,7 @@ class CardUploader:
     def _handle_new_parent(self, new_parent: pyszuru.Post) -> None:
         # Note parent for new posts
         self.parent_post = new_parent
-        logger.debug("Setting parent for already uploaded posts: ", new_parent)
+        logger.debug("Setting parent for already uploaded posts: %s", new_parent)
         # Set parent for previous posts
         for uploaded in self.results.values():
             if new_parent.id_ == uploaded.hpost.id_:
