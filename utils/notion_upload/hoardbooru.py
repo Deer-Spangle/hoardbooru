@@ -40,11 +40,7 @@ class HoardbooruTag:
 @dataclasses.dataclass
 class PostToUpload:
     url: str
-    artist_tags: list[HoardbooruTag]
-    character_tags: list[HoardbooruTag]
-    owner_tags: list[HoardbooruTag]
-    meta_tags: list[HoardbooruTag]
-    misc_tags: list[HoardbooruTag]
+    all_tags: list[HoardbooruTag]
     is_nsfw: bool
     parent_id: Optional[int]
     sources: list[str]

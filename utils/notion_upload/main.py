@@ -83,13 +83,10 @@ class Uploader:
                 continue
             wip_url = wip["file"]["url"]
             meta_tags = group_meta_tags + [HoardbooruTag("status:wip", HoardbooruTagType.META)]
+            all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
             post = PostToUpload(
                 wip_url,
-                artist_tags,
-                character_tags,
-                owner_tags,
-                meta_tags,
-                misc_tags,
+                all_tags,
                 is_nsfw,
                 parent_id,
                 sources,
@@ -104,13 +101,10 @@ class Uploader:
                 continue
             final_url = final["file"]["url"]
             meta_tags = group_meta_tags + uploaded_to_tags + [HoardbooruTag("status:final", HoardbooruTagType.META)]
+            all_tags = artist_tags + character_tags + owner_tags + meta_tags + misc_tags
             post = PostToUpload(
                 final_url,
-                artist_tags,
-                character_tags,
-                owner_tags,
-                meta_tags,
-                misc_tags,
+                all_tags,
                 is_nsfw,
                 parent_id,
                 sources,
