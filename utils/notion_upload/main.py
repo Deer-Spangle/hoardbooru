@@ -155,7 +155,6 @@ class Uploader:
             set_relationship(uploaded.hpost, new_parent)
 
 
-
 def main(config: dict) -> None:
     notion = Client(auth=config["notion"]["integration_secret"])
     hoardbooru = pyszuru.API(
