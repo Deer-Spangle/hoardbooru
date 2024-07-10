@@ -29,6 +29,8 @@ class HoardbooruTag:
     def name_clean(self) -> str:
         if self.name.lower() == "zephyr" and self.type == HoardbooruTagType.OWNERS:
             return "zephyr_(owner)"
+        if self.name.lower() == "deer-spangle" and self.type == HoardbooruTagType.CHARACTERS:
+            return "buck-spangle"
         return self.name.lower().replace(" ", "_")
 
     @property
