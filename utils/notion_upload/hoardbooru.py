@@ -70,9 +70,9 @@ def create_pool(hoardbooru: pyszuru.API, title: str, post_ids: list[int]) -> Non
         "POST",
         ["pool"],
         body={
-            "names": [title],
+            "names": [title.replace(" ", "_")],
             "category": "default",
-            "posts": [post_ids]
+            "posts": post_ids,
         }
     )
 
