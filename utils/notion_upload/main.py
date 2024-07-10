@@ -70,11 +70,11 @@ class CardUploader:
         logger.info("Processing card: %s", self.card.title)
         logger.info("Card link: %s", self.card.url)
         # Upload WIPs
-        logger.info("Uploading WIPs")
+        logger.info("Uploading %s WIPs", len(self.card.wip_files))
         for wip in self.card.wip_files:
             self._upload_file(wip, False)
         # Upload final files
-        logger.info("Updating finals")
+        logger.info("Updating %s finals", len(self.card.final_files))
         for final in self.card.final_files:
             self._upload_file(final, True)
         # Create pool if applicable
