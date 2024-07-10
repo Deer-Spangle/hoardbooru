@@ -127,9 +127,27 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
             update_post(tag_cache, post, exact_match)
             return exact_match
         closest = min(match_results, key=lambda x: x.distance)
-        logger.warning("Closest match has a distance of %s: %s", closest.distance, closest.post)
-        choice = input("How to proceed?")
-        raise ValueError("No idea how to proceed")
+        logger.warning(
+            "Closest match has a distance of %s%%: %s\nThe post being uploaded: %s\nThe existing post: %s",
+            100 * closest.distance,
+            closest.post,
+            post.url,
+            link_to_post(closest.post),
+        )
+        # Ask user how to proceed on non-exact duplicate detected
+        choice = input("Would you like to upload this new post? [yes]")
+        if choice.lower() not in ["yes", "y", ""]:
+            choice2 = input("Would you like to update the existing post?")
+            if choice2.lower() in ["yes", "y"]:
+                logger.debug("Updating post")
+                update_post(tag_cache, post, closest.post)
+                return closest.post
+            choice3 = input("Would you like to skip this upload?")
+            if choice3.lower() in ["yes", "y"]:
+                logger.debug("Skipping post")
+                return closest.post
+            raise ValueError("I am not sure how to proceed. Aborting")
+        logger.debug("Continuing to upload new post despite potential match")
     # Create the post
     logger.debug("Creating hoardbooru post")
     hoardbooru_post = hoardbooru.createPost(file_token, post.post_safety)
