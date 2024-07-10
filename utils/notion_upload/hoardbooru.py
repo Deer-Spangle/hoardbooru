@@ -33,7 +33,7 @@ class HoardbooruTag:
 
     @property
     def type_clean(self) -> str:
-        if self.name.lower() in ["animation", "gift", "got original", "uncoloured"]:
+        if self.name.lower() in ["animation", "gift", "got original", "uncoloured", "ych", "adopt", "ref sheet", "ref sheet-former"]:
             return HoardbooruTagType.META.name.lower()
         return self.type.name.lower()
 
