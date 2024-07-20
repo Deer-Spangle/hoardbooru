@@ -3,6 +3,7 @@ import enum
 import logging
 import tempfile
 from typing import Optional
+from zipfile import ZipFile, ZipInfo
 
 import pyszuru
 import requests
@@ -49,10 +50,15 @@ class PostToUpload:
     sources: set[str]
 
     @property
-    def file_ext(self) -> str:
+    def file_name(self) -> str:
         url, _ = self.url.split("?", 1)
-        _, ext = url.rsplit(".", 1)
-        return ext
+        _, filename = url.rsplit("/", 1)
+        return filename
+
+    @property
+    def file_ext(self) -> str:
+        _, ext = self.file_name.rsplit(".", 1)
+        return ext.lower()
 
     @property
     def post_safety(self) -> str:
@@ -114,8 +120,17 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
     with tempfile.NamedTemporaryFile(suffix=f".{post.file_ext}", mode="wb", delete_on_close=False) as f:
         f.write(file_resp.content)
         f.close()
-        logger.debug("Uploading file to hoardbooru: %s", f.name)
-        with open(f.name, mode="rb") as fr:
+        file_name = f.name
+        if post.file_ext in ["sai"]:
+            logger.debug("Zipping up the %s file", post.file_ext)
+            zip_name = f"{file_name}.zip"
+            with ZipFile(zip_name, 'w') as zipf:
+                # Hardcode the timestamp, so that sha1 might detect duplicates
+                info = ZipInfo(filename=post.file_name, date_time=(1980, 1, 1, 0, 0, 0))
+                zipf.writestr(info, file_resp.content)
+            file_name = zip_name
+        logger.debug("Uploading file to hoardbooru: %s", file_name)
+        with open(file_name, mode="rb") as fr:
             file_token = hoardbooru.upload_file(fr)
     # Check for duplicates
     match_results = hoardbooru.search_by_image(file_token)
