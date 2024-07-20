@@ -74,7 +74,7 @@ class CardUploader:
         for wip in self.card.wip_files:
             self._upload_file(wip, False)
         # Upload final files
-        logger.info("Updating %s finals", len(self.card.final_files))
+        logger.info("Uploading %s finals", len(self.card.final_files))
         for final in self.card.final_files:
             self._upload_file(final, True)
         # Create pool if applicable
