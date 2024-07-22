@@ -64,7 +64,7 @@ class CardUploader:
         self.results: dict[int, UploadedPost] = {}
         self.parent_post: Optional[UploadedPost] = None
         self.sources: set[str] = {self.card.url}
-        self.final_post_ids: list[int] = []
+        self.final_post_ids: set[int] = set()
 
     def run(self) -> dict[int, UploadedPost]:
         logger.info("Processing card: %s", self.card.title)
@@ -79,7 +79,7 @@ class CardUploader:
             self._upload_file(final, True)
         # Create pool if applicable
         if self.card.has_multiple_versions:
-            create_pool(self.uploader.hoardbooru, self.card.title, self.final_post_ids)
+            create_pool(self.uploader.hoardbooru, self.card.title, list(self.final_post_ids))
         # Mark the notion card as complete
         mark_card_uploaded(self.uploader.notion, self.card.card_id)
         logger.info("Completed card: %s", self.card.url)
@@ -133,7 +133,7 @@ class CardUploader:
                 # Set parent for already uploaded posts
                 self._handle_new_parent(hpost)
                 # Add to pool list
-            self.final_post_ids.append(hpost.id_)
+            self.final_post_ids.add(hpost.id_)
 
     def _handle_new_source(self, new_source: str) -> None:
         # Note source for new posts
