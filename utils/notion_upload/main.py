@@ -69,6 +69,7 @@ class CardUploader:
     def run(self) -> dict[int, UploadedPost]:
         logger.info("Processing card: %s", self.card.title)
         logger.info("Card link: %s", self.card.url)
+        logger.info("Card has %s WIPs and %s finals", len(self.card.wip_files), len(self.card.final_files))
         # Upload WIPs
         logger.info("Uploading %s WIPs", len(self.card.wip_files))
         for wip in self.card.wip_files:
