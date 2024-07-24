@@ -121,7 +121,7 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
         f.write(file_resp.content)
         f.close()
         file_name = f.name
-        if post.file_ext in ["sai"]:
+        if post.file_ext in ["sai", "swf"]:
             logger.debug("Zipping up the %s file", post.file_ext)
             zip_name = f"{file_name}.zip"
             with ZipFile(zip_name, 'w') as zipf:
