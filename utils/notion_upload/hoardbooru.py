@@ -148,11 +148,12 @@ def upload_post(hoardbooru: pyszuru.API, tag_cache: TagCache, post: PostToUpload
             logger.warning("Closest match is over 20% different, ignoring. Will create post anyway")
         else:
             logger.warning(
-                "Closest match has a distance of %s%%: %s\nThe post being uploaded: %s\nThe existing post: %s",
+                "Closest match has a distance of %s%%: %s\nThe post being uploaded: %s\nThe existing post: %s\nExisting direct link: %s",
                 100 * closest.distance,
                 closest.post,
                 post.url,
                 link_to_post(closest.post),
+                closest.post.content,
             )
             # Ask user how to proceed on non-exact duplicate detected
             choice = input("Would you like to upload this new post? [yes]")
