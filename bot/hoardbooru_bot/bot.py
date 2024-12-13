@@ -11,7 +11,7 @@ import pyszuru
 from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
 from telethon.tl.custom import InlineResult, InlineBuilder
-from telethon.tl.types import InputPhoto, InputDocument
+from telethon.tl.types import InputPhoto, InputDocument, UpdateBotInlineSend
 
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
@@ -90,6 +90,8 @@ class Bot:
         self.client.add_event_handler(self.start, events.NewMessage(pattern="/start", incoming=True))
         self.client.add_event_handler(self.boop, events.NewMessage(pattern="/beep", incoming=True))
         self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_users))
+        self.client.add_event_handler(self.inline_edit_callback, UpdateBotInlineSend)
+        self.client.add_event_handler(self.inline_edit_press, events.CallbackQuery(pattern="^neaten_me:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -193,3 +195,30 @@ class Bot:
             next_offset=str(next_offset),
             gallery=True,
         )
+
+    async def inline_edit_callback(self, event: UpdateBotInlineSend) -> None:
+        post_id = int(event.id)
+        logger.info("Received automatic inline edit callback for post %s", post_id)
+        post = self.hoardbooru.getPost(post_id)
+        if event.msg_id is None:
+            logger.warning("No message ID on automatic inline callback, skipping")
+            return
+        async with _downloaded_file(post.content) as dl_path:
+            await self.client.edit_message(
+                entity=event.msg_id,
+                file=dl_path,
+                buttons=None,
+            )
+
+    async def inline_edit_press(self, event: events.CallbackQuery.Event) -> None:
+        inline_query = event.id
+        if not inline_query.startswith("neaten_me:"):
+            return
+        logger.info("Received inline edit callback: %s", inline_query)
+        post_id = int(inline_query[len("neaten_me:"):])
+        post = self.hoardbooru.getPost(post_id)
+        async with _downloaded_file(post.content) as dl_path:
+            await event.edit(
+                file=dl_path,
+                buttons=None,
+            )
