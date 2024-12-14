@@ -21,7 +21,7 @@ class Database:
         self.db = await aiosqlite.connect("journals.db")
         self.db.row_factory = aiosqlite.Row
         directory = Path(__file__).parent
-        async with aiofiles.open(directory / "database_schema.sql", "r") as f:
+        async with aiofiles.open(directory / "db_schema.sql", "r") as f:
             db_schema = await f.read()
             await self.db.executescript(db_schema)
         await self.db.commit()
@@ -35,33 +35,31 @@ class Database:
             await self.db.close()
 
     async def count_cache_entries(self) -> int:
-        with self.db.execute(
+        async with self.db.execute(
             "SELECT COUNT(*) FROM cache_entries",
         ) as cursor:
-            row = await anext(cursor, None)
-            if not row:
-                return 0
-            return row[0]
+            async for row in cursor:
+                return row[0]
+            return 0
 
     async def fetch_cache_entry(self, post_id: int) -> Optional["CacheEntry"]:
-        with self.db.execute(
+        async with self.db.execute(
                 "SELECT is_photo, media_id, access_hash, file_url, mime_type, cache_date, is_thumbnail "
                 "FROM cache_entries WHERE post_id = ?",
                 (post_id,)
         ) as cursor:
-            row = await anext(cursor, None)
-            if not row:
-                return None
-            return CacheEntry(
-                post_id,
-                bool(row["is_photo"]),
-                row["media_id"],
-                row["access_hash"],
-                row["file_url"],
-                row["mime_type"],
-                dateutil.parser.parse(row["cache_date"]),
-                bool(row["is_thumbnail"]),
-            )
+            async for row in cursor:
+                return CacheEntry(
+                    post_id,
+                    bool(row["is_photo"]),
+                    row["media_id"],
+                    row["access_hash"],
+                    row["file_url"],
+                    row["mime_type"],
+                    dateutil.parser.parse(row["cache_date"]),
+                    bool(row["is_thumbnail"]),
+                )
+            return None
 
     async def save_cache_entry(
             self,

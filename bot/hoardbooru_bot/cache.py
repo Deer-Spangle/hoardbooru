@@ -1,7 +1,12 @@
 import datetime
 from typing import Optional
 
+from pyszuru import Post
+from telethon import TelegramClient
+from telethon.tl.types import PeerChannel
+
 from hoardbooru_bot.database import CacheEntry, Database
+from hoardbooru_bot.utils import downloaded_file
 
 
 def now() -> datetime.datetime:
@@ -10,8 +15,47 @@ def now() -> datetime.datetime:
 
 class TelegramMediaCache:
 
-    def __init__(self, db: Database) -> None:
+    def __init__(self, db: Database, client: TelegramClient, cache_channel: PeerChannel) -> None:
         self.db = db
+        self.client = client
+        self.cache_channel = cache_channel
+
+    async def store_in_cache(self, post: Post) -> CacheEntry:
+        is_photo = False
+        async with downloaded_file(post.content) as dl_path:
+            if post.mime.startswith("image"):
+                is_photo = True
+                msg = await self.client.send_file(
+                    self.cache_channel,
+                    dl_path,
+                    mime_type=post.mime,
+                )
+            elif post.mime == "video/mp4":
+                msg = await self.client.send_file(
+                    self.cache_channel,
+                    dl_path,
+                    mime_type=post.mime,
+                )
+            else:
+                msg = await self.client.send_file(
+                    self.cache_channel,
+                    dl_path,
+                    force_document=True,
+                    mime_type=post.mime,
+                )
+        # Build the cache entry
+        cache_entry = CacheEntry(
+            post.id_,
+            is_photo,
+            msg.file.media.id,
+            msg.file.media.access_hash,
+            post.content,
+            post.mime,
+            now(),
+            False,
+        )
+        await self.db.save_cache_entry(cache_entry)
+        return cache_entry
 
     async def save_cache(
             self,
