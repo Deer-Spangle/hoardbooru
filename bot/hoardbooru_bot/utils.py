@@ -3,6 +3,7 @@ import uuid
 from contextlib import asynccontextmanager, contextmanager
 from typing import Generator
 
+import PIL
 import aiofiles.os
 import aiohttp
 from PIL import Image
@@ -81,7 +82,7 @@ async def convert_image(img_path: str) -> Generator[str, None, None]:
                 scale_factor = TG_IMG_SEMIPERIMETER_LIMIT / semiperimeter
                 new_width = int(width * scale_factor)
                 new_height = int(height * scale_factor)
-                img = img.resize((new_width, new_height), Image.ANTIALIAS)
+                img = img.resize((new_width, new_height), PIL.Image.LANCZOS)
 
             # Mask out transparency
             if img.mode == 'P':
