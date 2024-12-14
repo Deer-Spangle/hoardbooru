@@ -18,7 +18,7 @@ class Database:
         self.db: Optional[aiosqlite.Connection] = None
 
     async def start(self) -> None:
-        self.db = await aiosqlite.connect("journals.db")
+        self.db = await aiosqlite.connect("hoardbooru_bot_db.db")
         self.db.row_factory = aiosqlite.Row
         directory = Path(__file__).parent
         async with aiofiles.open(directory / "db_schema.sql", "r") as f:
