@@ -28,7 +28,7 @@ async def _check_sender(evt: events.CallbackQuery.Event, allowed_user_id: int) -
 
 class Bot:
     MAX_INLINE_ANSWERS = 30
-    MAX_INLINE_FRESH_MEDIA = 2
+    MAX_INLINE_FRESH_MEDIA = 1
 
     def __init__(self, config: dict) -> None:
         self.config = config
