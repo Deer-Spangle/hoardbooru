@@ -77,12 +77,6 @@ class Bot:
         await event.reply("Hey there! I'm not a very good bot yet, I'm quite early in development. I'm gonna be a bot to interface with hoardbooru")
         raise events.StopPropagation
 
-    async def _download_hoardbooru_thumb(self, thumbnail_url: str) -> bytes:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(thumbnail_url) as resp:
-                if resp.status == 200:
-                    return await resp.read()
-
     async def _hoardbooru_post_to_inline_answer(self, builder: InlineBuilder, post: pyszuru.Post) -> InlineResult:
         cache_entry = await self.media_cache.store_in_cache(post)
         return await self._cache_entry_to_inline_answer(builder, cache_entry)
