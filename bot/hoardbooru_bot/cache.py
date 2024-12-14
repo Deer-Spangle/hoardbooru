@@ -6,7 +6,7 @@ from telethon import TelegramClient
 from telethon.tl.types import PeerChannel
 
 from hoardbooru_bot.database import CacheEntry, Database
-from hoardbooru_bot.utils import downloaded_file
+from hoardbooru_bot.utils import downloaded_file, convert_image
 
 
 def now() -> datetime.datetime:
@@ -14,6 +14,7 @@ def now() -> datetime.datetime:
 
 
 class TelegramMediaCache:
+    TG_MAX_PHOTO_FILE_SIZE = 10_000_000
 
     def __init__(self, db: Database, client: TelegramClient, cache_channel: PeerChannel) -> None:
         self.db = db
@@ -25,12 +26,12 @@ class TelegramMediaCache:
         async with downloaded_file(post.content) as dl_file:
             if post.mime.startswith("image"):
                 is_photo = True
-                msg = await self.client.send_file(
-                    self.cache_channel,
-                    dl_file.dl_path,
-                    mime_type=post.mime,
-                    file_size=dl_file.file_size,
-                )
+                async with convert_image(dl_file.dl_path) as img_path:
+                    msg = await self.client.send_file(
+                        self.cache_channel,
+                        img_path,
+                        mime_type=post.mime,
+                    )
             elif post.mime == "video/mp4":
                 msg = await self.client.send_file(
                     self.cache_channel,
