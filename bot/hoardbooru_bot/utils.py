@@ -1,3 +1,4 @@
+import dataclasses
 import uuid
 from contextlib import asynccontextmanager
 from typing import Generator
@@ -32,8 +33,14 @@ async def temp_sandbox_file(ext: str) -> Generator[str, None, None]:
             pass
 
 
+@dataclasses.dataclass
+class DownloadedFile:
+    dl_path: str
+    file_size: int
+
+
 @asynccontextmanager
-async def downloaded_file(url: str) -> Generator[str, None, None]:
+async def downloaded_file(url: str) -> Generator[DownloadedFile, None, None]:
     async with temp_sandbox_file(file_ext(url)) as dl_path:
         session = aiohttp.ClientSession()
         dl_filesize = 0
@@ -43,4 +50,4 @@ async def downloaded_file(url: str) -> Generator[str, None, None]:
                 async for chunk in resp.content.iter_chunked(8192):
                     f.write(chunk)
                     dl_filesize += len(chunk)
-        yield dl_path
+        yield DownloadedFile(dl_path, dl_filesize)
