@@ -24,7 +24,7 @@ class TelegramMediaCache:
     async def store_in_cache(self, post: Post) -> CacheEntry:
         is_photo = False
         async with downloaded_file(post.content) as dl_file:
-            if post.mime.startswith("image"):
+            if post.mime.startswith("image") and post.mime != "image/gif":
                 is_photo = True
                 async with convert_image(dl_file.dl_path) as img_path:
                     msg = await self.client.send_file(
@@ -32,7 +32,7 @@ class TelegramMediaCache:
                         img_path,
                         mime_type=post.mime,
                     )
-            elif post.mime == "video/mp4":
+            elif post.mime in ("video/mp4", "image/gif"):
                 msg = await self.client.send_file(
                     self.cache_channel,
                     dl_file.dl_path,

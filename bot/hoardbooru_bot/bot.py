@@ -105,7 +105,6 @@ class Bot:
         }.get(file_ext(cache_entry.file_url))
         return await builder.document(
             file=input_media,
-            title=cache_entry.post_id,
             mime_type=mime_type,
             type="gif" if mime_type == "video/mp4" else None,
             id=str(cache_entry.post_id),
