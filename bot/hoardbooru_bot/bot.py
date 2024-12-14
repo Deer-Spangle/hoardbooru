@@ -96,15 +96,17 @@ class Bot:
                 buttons=buttons,
                 parse_mode="html",
             )
+        post_file_ext = file_ext(cache_entry.file_url)
         mime_type = {
             "mp4": "video/mp4",
             "gif": "video/mp4",
             "webm": "video/mp4",
             "mp3": "audio/mp3",
             "pdf": "application/pdf",
-        }.get(file_ext(cache_entry.file_url))
+        }.get(post_file_ext)
         return await builder.document(
             file=input_media,
+            title=f"{cache_entry.post_id}.{post_file_ext}",
             mime_type=mime_type,
             type="gif" if mime_type == "video/mp4" else None,
             id=str(cache_entry.post_id),
