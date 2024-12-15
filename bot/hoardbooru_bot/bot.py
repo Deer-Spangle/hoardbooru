@@ -3,7 +3,6 @@ import itertools
 import logging
 from typing import Optional, Coroutine, Any
 
-import aiohttp
 import pyszuru
 from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
