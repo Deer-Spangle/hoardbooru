@@ -1,7 +1,7 @@
 import dataclasses
 import uuid
-from contextlib import asynccontextmanager, contextmanager
-from typing import Generator
+from contextlib import asynccontextmanager
+from typing import Generator, Optional
 
 import PIL
 import aiofiles.os
@@ -24,9 +24,10 @@ async def download_file_bytes(file_url: str) -> bytes:
 
 
 @asynccontextmanager
-async def temp_sandbox_file(ext: str) -> Generator[str, None, None]:
+async def temp_sandbox_file(ext: Optional[str]) -> Generator[str, None, None]:
     await aiofiles.os.makedirs(SANDBOX_DIR, exist_ok=True)
-    temp_path = f"{SANDBOX_DIR}/{uuid.uuid4()}.{ext}"
+    suffix = f".{ext}" if ext is not None else ""
+    temp_path = f"{SANDBOX_DIR}/{uuid.uuid4()}{suffix}"
     try:
         yield temp_path
     finally:
