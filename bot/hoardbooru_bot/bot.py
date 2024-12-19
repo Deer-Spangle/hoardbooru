@@ -306,9 +306,10 @@ class Bot:
             f"\nPost: http://hoard.lan:8390/post/{post.id_}"
             f"\n{phase_cls.question()}"
         )
-        buttons = [[
-            tag.to_button(post.tags) for tag in tags
-        ]]
+        tag_buttons = [tag.to_button(post.tags) for tag in tags]
+        buttons = [
+            tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
+        ]
         buttons += [[Button.inline("Cancel", b"tag_phase:cancel")]]
         next_phase = phase_cls.next_phase()
         if next_phase == "done":
