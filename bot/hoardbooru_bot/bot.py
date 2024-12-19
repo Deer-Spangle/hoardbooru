@@ -11,11 +11,13 @@ from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
 from telethon.events import StopPropagation
 from telethon.tl.custom import InlineResult, InlineBuilder
+from telethon.tl.patched import Message
 from telethon.tl.types import InputPhoto, InputDocument, PeerChannel, DocumentAttributeFilename
 
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
+from hoardbooru_bot.tag_phases import PHASES
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 
 logger = logging.getLogger(__name__)
@@ -66,12 +68,16 @@ class Bot:
         # Register functions
         self.client.add_event_handler(self.start, events.NewMessage(pattern="/start", incoming=True))
         self.client.add_event_handler(self.boop, events.NewMessage(pattern="/beep", incoming=True))
+        self.client.add_event_handler(
+            self.tag_init, events.NewMessage(pattern="/tag", incoming=True, from_users=self.trusted_users)
+        )
         self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_users))
         self.client.add_event_handler(
             self.upload_document,
             events.NewMessage(func=lambda e: filter_document(e), incoming=True),
         )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
+        self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -275,7 +281,67 @@ class Bot:
         post.push()
         # Store in cache
         await self.media_cache.store_in_cache(post)
-        # Reply
+        # Reply with post link
         await event.delete()
         await original_msg.reply(f"Uploaded to hoardbooru:\nhttps://hoard.lan:8390/post/{post.id_}")
+        # Start tagging phase
+        tag_menu_data = {
+            "post_id": str(post.id_),
+            "tag_phase": "comm_status",
+            "page": str(0),
+            "order": "popular"
+        }
+        tag_msg = await original_msg.reply("Initialising tag helper")
+        await self.post_tag_phase_menu(tag_msg, tag_menu_data)
         raise StopPropagation
+
+    async def post_tag_phase_menu(self, msg: Message, menu_data: dict[str, str]) -> None:
+        phase_cls = PHASES[menu_data["tag_phase"]]()
+        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        hidden_link = hidden_data(menu_data)
+        tags = phase_cls.list_tags()
+        msg_text = (
+            f"{hidden_link}Tagging phase: {phase_cls.name()}"
+            f"\nPost: http://hoard.lan:8390/post/{post.id_}"
+            f"\n{phase_cls.question()}"
+        )
+        await msg.edit(
+            text=msg_text,
+            buttons=[
+                tag.to_button(post.tags) for tag in tags
+            ],
+            parse_mode="html",
+        )
+        raise StopPropagation
+
+    async def tag_phase_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"tag:"):
+            return
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        tag_name = event.data[4:].decode()
+        # Update the tags
+        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        htag = self.hoardbooru.getTag(tag_name)
+        if htag.primary_name in [t.primary_name for t in post.tags]:
+            post.tags = [t for t in post.tags if htag.primary_name != t.primary_name]
+        else:
+            post.tags += [htag]
+        post.push()
+        # Update the menu
+        await self.post_tag_phase_menu(event_msg, menu_data)
+
+    async def tag_init(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text.startswith("/tag"):
+            return
+        post_id = event.message.text[4:].strip()
+        post = self.hoardbooru.getPost(int(post_id))
+        tag_menu_data = {
+            "post_id": str(post.id_),
+            "tag_phase": "comm_status",
+            "page": str(0),
+            "order": "popular"
+        }
+        tag_msg = await event.message.reply("Initialising tag helper")
+        await self.post_tag_phase_menu(tag_msg, tag_menu_data)
+
