@@ -17,6 +17,7 @@ from telethon.tl.types import InputPhoto, InputDocument, PeerChannel, DocumentAt
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
+from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 
@@ -55,6 +56,7 @@ class Bot:
         cache_channel = PeerChannel(self.config["cache_channel"])
         self.media_cache = TelegramMediaCache(self.database, self.client, cache_channel)
         self.hoardbooru: Optional[pyszuru.API] = None
+        self.popularity_cache: Optional[PopularityCache] = None
 
     async def run(self) -> None:
         start_time.set_to_current_time()
@@ -297,11 +299,18 @@ class Bot:
         await self.post_tag_phase_menu(tag_msg, tag_menu_data)
         raise StopPropagation
 
+    def _build_popularity_cache(self) -> PopularityCache:
+        if self.popularity_cache is None or self.popularity_cache.out_of_date():
+            logger.info("Building new popularity cache")
+            self.popularity_cache = PopularityCache.create_cache(self.hoardbooru)
+        return self.popularity_cache
+
     async def post_tag_phase_menu(self, msg: Message, menu_data: dict[str, str]) -> None:
         phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru)
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         hidden_link = hidden_data(menu_data)
-        tags = phase_cls.list_tags()
+        # Log
+        logger.info("Render the post tag menu: %s", menu_data)
         # Figure out message text
         msg_text = (
             f"{hidden_link}Tagging phase: {phase_cls.name()}"
@@ -319,6 +328,15 @@ class Bot:
                 Button.inline(f"{alp_tick} Alphabetical", "tag_order:alphabetical"),
             ]]
         # Add the actual tag buttons
+        tags = phase_cls.list_tags()
+        if phase_cls.allow_ordering and menu_data["order"] == "popular":
+            popularity_filter = phase_cls.popularity_filter_tag(post)
+            popularity_cache = self._build_popularity_cache().filter(popularity_filter)
+            for tag in tags:
+                tag.popularity = popularity_cache.popularity(tag.tag_name)
+            tags = sorted(tags, key=lambda tag: tag.popularity, reverse=True)
+        if phase_cls.allow_ordering and menu_data["order"] == "alphabetical":
+            tags = sorted(tags, key=lambda tag: tag.tag_name)
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
         buttons += [
             tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
@@ -362,13 +380,14 @@ class Bot:
         event_msg = await event.get_message()
         menu_data = parse_hidden_data(event_msg)
         query_data = event.data[len(b"tag_phase:"):]
+        logger.info("Moving tag phase: %s", query_data)
         if query_data == b"cancel":
-            event_msg.edit(
+            await event_msg.edit(
                 f"Tagging cancelled.\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
         if query_data == b"done":
-            event_msg.edit(
+            await event_msg.edit(
                 f"Tagging complete!\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
@@ -382,6 +401,7 @@ class Bot:
         event_msg = await event.get_message()
         menu_data = parse_hidden_data(event_msg)
         query_data = event.data[len(b"tag_order:"):]
+        logger.info("Changing tag order to: %s", query_data)
         if query_data == b"popular":
             menu_data["order"] = "popular"
         if query_data == b"alphabetical":

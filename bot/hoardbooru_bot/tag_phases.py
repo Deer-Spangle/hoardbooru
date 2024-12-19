@@ -1,5 +1,6 @@
 import dataclasses
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import pyszuru
 from telethon import Button
@@ -9,12 +10,16 @@ from telethon import Button
 class TagEntry:
     tag_name: str
     button_name: str
+    popularity: Optional[int] = dataclasses.field(default=None)
 
     def to_button(self, post_tags: list[pyszuru.Tag]) -> Button:
         tag_names = [n for t in post_tags for n in t.names]
         tick = "✅" if self.tag_name in tag_names else ""
+        button_text = f"{tick}{self.button_name}"
+        if self.popularity is not None:
+            button_text += f" ({self.popularity})"
         return Button.inline(
-            f"{tick}{self.button_name}",
+            button_text,
             f"tag:{self.tag_name}".encode(),
         )
 
@@ -25,9 +30,11 @@ class TagPhase(ABC):
     def __init__(self, hoardbooru: pyszuru.API) -> None:
         self.hoardbooru = hoardbooru
 
+    @abstractmethod
     def name(self) -> str:
         raise NotImplementedError()
 
+    @abstractmethod
     def question(self) -> str:
         raise NotImplementedError()
 
@@ -35,9 +42,12 @@ class TagPhase(ABC):
     def list_tags(self) -> list[TagEntry]:
         raise NotImplementedError()
 
+    @abstractmethod
     def next_phase(self) -> str:
         raise NotImplementedError()
 
+    def popularity_filter_tag(self, current_post: pyszuru.Post) -> Optional[str]:
+        raise NotImplementedError()
 
 
 class CommStatus(TagPhase):
@@ -77,6 +87,8 @@ class OurCharacters(TagPhase):
     def next_phase(self) -> str:
         return "other_characters"
 
+    def popularity_filter_tag(self, current_post: pyszuru.Post) -> Optional[str]:
+        return None
 
 
 PHASES = {
