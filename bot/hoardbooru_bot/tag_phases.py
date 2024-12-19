@@ -46,7 +46,7 @@ class TagPhase(ABC):
     def next_phase(self) -> str:
         raise NotImplementedError()
 
-    def popularity_filter_tag(self, current_post: pyszuru.Post) -> Optional[str]:
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
         raise NotImplementedError()
 
 
@@ -87,11 +87,38 @@ class OurCharacters(TagPhase):
     def next_phase(self) -> str:
         return "other_characters"
 
-    def popularity_filter_tag(self, current_post: pyszuru.Post) -> Optional[str]:
-        return None
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
+        return []
+
+
+class OtherCharacters(TagPhase):
+
+    def name(self) -> str:
+        return "Other characters"
+
+    def question(self) -> str:
+        return "Which other characters appear in this?"
+
+    def list_tags(self) -> list[TagEntry]:
+        tags = self.hoardbooru.search_tag("category:characters")
+        return [TagEntry(
+            tag.primary_name,
+            tag.primary_name
+        ) for tag in tags]
+
+    def next_phase(self) -> str:
+        return "artist"
+
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
+        character_tags = []
+        for tag in current_post.tags:
+            if tag.category == "our_characters":
+                character_tags.append(tag.primary_name)
+        return character_tags
 
 
 PHASES = {
     "comm_status": CommStatus,
     "our_characters": OurCharacters,
+    "other_characters": OtherCharacters,
 }

@@ -330,13 +330,18 @@ class Bot:
         # Add the actual tag buttons
         tags = phase_cls.list_tags()
         if phase_cls.allow_ordering and menu_data["order"] == "popular":
-            popularity_filter = phase_cls.popularity_filter_tag(post)
-            popularity_cache = self._build_popularity_cache().filter(popularity_filter)
             for tag in tags:
-                tag.popularity = popularity_cache.popularity(tag.tag_name)
-            tags = sorted(tags, key=lambda tag: tag.popularity, reverse=True)
+                tag.popularity = 0
+            popularity_filters = phase_cls.popularity_filter_tags(post) or [None]
+            for popularity_filter in popularity_filters:
+                popularity_cache = self._build_popularity_cache().filter(popularity_filter)
+                for tag in tags:
+                    tag.popularity += popularity_cache.popularity(tag.tag_name)
+            tags = sorted(tags, key=lambda t: (-t.popularity, t.tag_name))
+            logger.info("Sorted tags by popularity")
         if phase_cls.allow_ordering and menu_data["order"] == "alphabetical":
-            tags = sorted(tags, key=lambda tag: tag.tag_name)
+            tags = sorted(tags, key=lambda t: t.tag_name)
+            logger.info("Sorted tags by alphabet")
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
         buttons += [
             tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
