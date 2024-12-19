@@ -179,7 +179,7 @@ class Bot:
         logger.info("Query with blocked tags is: %s", inline_query)
         # Get the biggest possible list of posts
         post_generator = self.hoardbooru.search_post(inline_query)
-        posts = list(itertools.islice(post_generator, inline_offset, self.MAX_INLINE_ANSWERS))
+        posts = list(itertools.islice(post_generator, inline_offset, inline_offset + self.MAX_INLINE_ANSWERS))
         logger.info("Found %s posts for inline query", len(posts))
         # Gather any cache entries which exist
         cache_entries = await asyncio.gather(*[
