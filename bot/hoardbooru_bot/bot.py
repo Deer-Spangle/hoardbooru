@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import glob
 import itertools
 import logging
@@ -39,6 +40,19 @@ def filter_document(evt: events.NewMessage.Event) -> bool:
     return True
 
 
+@dataclasses.dataclass
+class TrustedUser:
+    telegram_id: int
+    blocked_tags: list[str]
+
+    @classmethod
+    def from_json(cls, data: dict) -> "TrustedUser":
+        return cls(
+            data["telegram_id"],
+            data.get("blocked_tags", []),
+        )
+
+
 class Bot:
     MAX_INLINE_ANSWERS = 30
     MAX_INLINE_FRESH_MEDIA = 1
@@ -51,7 +65,9 @@ class Bot:
         self.client = TelegramClient(
             session_name, self.config["telegram"]["api_id"], self.config["telegram"]["api_hash"]
         )
-        self.trusted_users = self.config["trusted_users"]
+        self.trusted_users = [
+            TrustedUser.from_json(user_data) for user_data in self.config["trusted_users"]
+        ]
         self.database = Database()
         cache_channel = PeerChannel(self.config["cache_channel"])
         self.media_cache = TelegramMediaCache(self.database, self.client, cache_channel)
@@ -71,12 +87,12 @@ class Bot:
         self.client.add_event_handler(self.start, events.NewMessage(pattern="/start", incoming=True))
         self.client.add_event_handler(self.boop, events.NewMessage(pattern="/beep", incoming=True))
         self.client.add_event_handler(
-            self.tag_init, events.NewMessage(pattern="/tag", incoming=True, from_users=self.trusted_users)
+            self.tag_init, events.NewMessage(pattern="/tag", incoming=True, from_users=self.trusted_user_ids())
         )
-        self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_users))
+        self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_user_ids()))
         self.client.add_event_handler(
             self.upload_document,
-            events.NewMessage(func=lambda e: filter_document(e), incoming=True),
+            events.NewMessage(func=lambda e: filter_document(e), incoming=True, from_users=self.trusted_user_ids()),
         )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
@@ -91,6 +107,15 @@ class Bot:
             await self.client.run_until_disconnected()
         finally:
             logger.info("Bot sleepy bye-bye time")
+
+    def trusted_user_ids(self) -> list[int]:
+        return [user.telegram_id for user in self.trusted_users]
+
+    def trusted_user_by_id(self, user_id: int) -> Optional[TrustedUser]:
+        for user in self.trusted_users:
+            if user.telegram_id == user_id:
+                return user
+        return None
 
     # noinspection PyMethodMayBeStatic
     async def boop(self, event: events.NewMessage.Event) -> None:
@@ -145,7 +170,13 @@ class Bot:
         builder = event.builder
         if inline_query == "":
             return
-        logger.info("Received inline query: %s", inline_query)
+        logger.info("Received inline query: %s, offset: %s", inline_query, inline_offset)
+        # Add blocked tags
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        inline_query += "".join(f" -{tag}" for tag in user.blocked_tags)
+        logger.info("Query with blocked tags is: %s", inline_query)
         # Get the biggest possible list of posts
         post_generator = self.hoardbooru.search_post(inline_query)
         posts = list(itertools.islice(post_generator, inline_offset, self.MAX_INLINE_ANSWERS))
