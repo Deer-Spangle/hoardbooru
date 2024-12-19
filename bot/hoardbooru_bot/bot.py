@@ -79,6 +79,7 @@ class Bot:
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
+        self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -301,21 +302,36 @@ class Bot:
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         hidden_link = hidden_data(menu_data)
         tags = phase_cls.list_tags()
+        # Figure out message text
         msg_text = (
             f"{hidden_link}Tagging phase: {phase_cls.name()}"
             f"\nPost: http://hoard.lan:8390/post/{post.id_}"
             f"\n{phase_cls.question()}"
         )
+        # Construct buttons
+        buttons = []
+        # Order buttons
+        if phase_cls.allow_ordering:
+            pop_tick = "🔘" if menu_data["order"] == "popular" else "⚪"
+            alp_tick = "🔘" if menu_data["order"] == "alphabetical" else "⚪"
+            buttons += [[
+                Button.inline(f"{pop_tick}Popular", "tag_order:popular"),
+                Button.inline(f"{alp_tick}Alphabetical", "tag_order:alphabetical"),
+            ]]
+        # Add the actual tag buttons
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
-        buttons = [
+        buttons += [
             tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
         ]
+        # Cancel button
         buttons += [[Button.inline("Cancel", b"tag_phase:cancel")]]
+        # Next phase button
         next_phase = phase_cls.next_phase()
         if next_phase == "done":
             buttons += [[Button.inline("Done!", b"tag_phase:done")]]
         else:
             buttons += [[Button.inline("Next tagging phase", f"tag_phase:{next_phase}".encode())]]
+        # Edit the menu
         await msg.edit(
             text=msg_text,
             buttons=buttons,
@@ -358,6 +374,18 @@ class Bot:
             raise StopPropagation
         menu_data["tag_phase"] = query_data.decode()
         menu_data["page"] = "0"
+        await self.post_tag_phase_menu(event_msg, menu_data)
+
+    async def tag_order_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"tag_order:"):
+            return
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        query_data = event.data[len(b"tag_order:"):]
+        if query_data == b"popular":
+            menu_data["order"] = "popular"
+        if query_data == b"alphabetical":
+            menu_data["order"] = "alphabetical"
         await self.post_tag_phase_menu(event_msg, menu_data)
 
     async def tag_init(self, event: events.NewMessage.Event) -> None:
