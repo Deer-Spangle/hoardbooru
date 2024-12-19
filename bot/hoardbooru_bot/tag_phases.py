@@ -22,6 +22,9 @@ class TagEntry:
 class TagPhase(ABC):
     allow_ordering = True
 
+    def __init__(self, hoardbooru: pyszuru.API) -> None:
+        self.hoardbooru = hoardbooru
+
     def name(self) -> str:
         raise NotImplementedError()
 
@@ -56,7 +59,27 @@ class CommStatus(TagPhase):
         return "our_characters"
 
 
+class OurCharacters(TagPhase):
+
+    def name(self) -> str:
+        return "Our characters"
+
+    def question(self) -> str:
+        return "Which of our characters does this include?"
+
+    def list_tags(self) -> list[TagEntry]:
+        tags = self.hoardbooru.search_tag("category:our_characters")
+        return [TagEntry(
+            tag.primary_name,
+            tag.primary_name,
+        ) for tag in tags]
+
+    def next_phase(self) -> str:
+        return "other_characters"
+
+
 
 PHASES = {
-    "comm_status": CommStatus
+    "comm_status": CommStatus,
+    "our_characters": OurCharacters,
 }

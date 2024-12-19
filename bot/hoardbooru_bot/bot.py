@@ -77,7 +77,8 @@ class Bot:
             events.NewMessage(func=lambda e: filter_document(e), incoming=True),
         )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
-        self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag:"))
+        self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
+        self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -296,7 +297,7 @@ class Bot:
         raise StopPropagation
 
     async def post_tag_phase_menu(self, msg: Message, menu_data: dict[str, str]) -> None:
-        phase_cls = PHASES[menu_data["tag_phase"]]()
+        phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru)
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         hidden_link = hidden_data(menu_data)
         tags = phase_cls.list_tags()
@@ -305,16 +306,23 @@ class Bot:
             f"\nPost: http://hoard.lan:8390/post/{post.id_}"
             f"\n{phase_cls.question()}"
         )
+        buttons = [[
+            tag.to_button(post.tags) for tag in tags
+        ]]
+        buttons += [[Button.inline("Cancel", b"tag_phase:cancel")]]
+        next_phase = phase_cls.next_phase()
+        if next_phase == "done":
+            buttons += [[Button.inline("Done!", b"tag_phase:done")]]
+        else:
+            buttons += [[Button.inline("Next tagging phase", f"tag_phase:{next_phase}".encode())]]
         await msg.edit(
             text=msg_text,
-            buttons=[
-                tag.to_button(post.tags) for tag in tags
-            ],
+            buttons=buttons,
             parse_mode="html",
         )
         raise StopPropagation
 
-    async def tag_phase_callback(self, event: events.CallbackQuery.Event) -> None:
+    async def tag_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag:"):
             return
         event_msg = await event.get_message()
@@ -331,6 +339,26 @@ class Bot:
         # Update the menu
         await self.post_tag_phase_menu(event_msg, menu_data)
 
+    async def tag_phase_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"tag_phase:"):
+            return
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        query_data = event.data[len(b"tag_phase:"):]
+        if query_data == b"cancel":
+            event_msg.edit(
+                f"Tagging cancelled.\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
+            )
+            raise StopPropagation
+        if query_data == b"done":
+            event_msg.edit(
+                f"Tagging complete!\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
+            )
+            raise StopPropagation
+        menu_data["tag_phase"] = query_data.decode()
+        menu_data["page"] = "0"
+        await self.post_tag_phase_menu(event_msg, menu_data)
+
     async def tag_init(self, event: events.NewMessage.Event) -> None:
         if not event.message.text.startswith("/tag"):
             return
@@ -344,4 +372,4 @@ class Bot:
         }
         tag_msg = await event.message.reply("Initialising tag helper")
         await self.post_tag_phase_menu(tag_msg, tag_menu_data)
-
+        raise StopPropagation
