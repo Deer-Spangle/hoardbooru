@@ -315,8 +315,8 @@ class Bot:
             pop_tick = "🔘" if menu_data["order"] == "popular" else "⚪"
             alp_tick = "🔘" if menu_data["order"] == "alphabetical" else "⚪"
             buttons += [[
-                Button.inline(f"{pop_tick}Popular", "tag_order:popular"),
-                Button.inline(f"{alp_tick}Alphabetical", "tag_order:alphabetical"),
+                Button.inline(f"{pop_tick} Popular", "tag_order:popular"),
+                Button.inline(f"{alp_tick} Alphabetical", "tag_order:alphabetical"),
             ]]
         # Add the actual tag buttons
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
@@ -324,13 +324,13 @@ class Bot:
             tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
         ]
         # Cancel button
-        buttons += [[Button.inline("Cancel", b"tag_phase:cancel")]]
+        buttons += [[Button.inline("🛑 Cancel", b"tag_phase:cancel")]]
         # Next phase button
         next_phase = phase_cls.next_phase()
         if next_phase == "done":
-            buttons += [[Button.inline("Done!", b"tag_phase:done")]]
+            buttons += [[Button.inline("🏁 Done!", b"tag_phase:done")]]
         else:
-            buttons += [[Button.inline("Next tagging phase", f"tag_phase:{next_phase}".encode())]]
+            buttons += [[Button.inline("⏭️ Next tagging phase", f"tag_phase:{next_phase}".encode())]]
         # Edit the menu
         await msg.edit(
             text=msg_text,
