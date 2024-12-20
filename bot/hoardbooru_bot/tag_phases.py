@@ -214,7 +214,7 @@ class UploadedTo(TagPhase):
         return "Which sites has (or hasn't) this been uploaded to?"
 
     def list_tags(self) -> list[TagEntry]:
-        tags = self.hoardbooru.search_tag("default")
+        tags = self.hoardbooru.search_tag("category:meta-uploads")
         return _tags_to_tag_entries(tags)
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
