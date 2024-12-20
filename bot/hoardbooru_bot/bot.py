@@ -19,7 +19,7 @@ from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
-from hoardbooru_bot.tag_phases import PHASES
+from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 
 logger = logging.getLogger(__name__)
@@ -314,8 +314,13 @@ class Bot:
         post = self.hoardbooru.createPost(file_token, post_rating)
         logger.info("Created hoardbooru post: %s", post.id_)
         # Apply some default tags
-        check_tag = self.hoardbooru.getTag("tagging:needs_check")
-        post.tags = [check_tag]
+        check_tags = []
+        for check_tag_name in DEFAULT_TAGGING_TAGS:
+            check_tag = self.hoardbooru.getTag(check_tag_name)
+            check_tag.category = "meta-tagging"
+            check_tag.push()
+            check_tags.append(check_tag)
+        post.tags = check_tags
         post.push()
         # Store in cache
         await self.media_cache.store_in_cache(post)
@@ -404,7 +409,6 @@ class Bot:
             buttons=buttons,
             parse_mode="html",
         )
-        raise StopPropagation
 
     async def tag_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag:"):
@@ -422,6 +426,7 @@ class Bot:
         post.push()
         # Update the menu
         await self.post_tag_phase_menu(event_msg, menu_data)
+        raise StopPropagation
 
     async def tag_phase_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag_phase:"):
@@ -430,19 +435,28 @@ class Bot:
         menu_data = parse_hidden_data(event_msg)
         query_data = event.data[len(b"tag_phase:"):]
         logger.info("Moving tag phase: %s", query_data)
+        # If cancelled, exit early
         if query_data == b"cancel":
             await event_msg.edit(
                 f"Tagging cancelled.\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
+        # Mark the current phase complete
+        logger.info("Marking current phase complete: %s", menu_data["phase"])
+        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        post.tags = [tag for tag in post.tags if tag.primary_name != TAGGING_TAG_FORMAT.format(menu_data["phase"])]
+        post.push()
+        # It we're done, close the menu
         if query_data == b"done":
             await event_msg.edit(
                 f"Tagging complete!\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
+        # Move to next phase
         menu_data["tag_phase"] = query_data.decode()
         menu_data["page"] = "0"
         await self.post_tag_phase_menu(event_msg, menu_data)
+        raise StopPropagation
 
     async def tag_order_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag_order:"):
@@ -457,6 +471,7 @@ class Bot:
             menu_data["order"] = "alphabetical"
         menu_data["page"] = "0"
         await self.post_tag_phase_menu(event_msg, menu_data)
+        raise StopPropagation
 
     async def tag_page_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag_page:"):
@@ -467,6 +482,7 @@ class Bot:
         logger.info("Changing tag page to: %s", query_data)
         menu_data["page"] = query_data.decode()
         await self.post_tag_phase_menu(event_msg, menu_data)
+        raise StopPropagation
 
     async def tag_init(self, event: events.NewMessage.Event) -> None:
         if not event.message.text.startswith("/tag"):

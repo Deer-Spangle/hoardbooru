@@ -237,3 +237,10 @@ PHASES = {
     "kink": KinkTags,
     "upload": UploadedTo,
 }
+
+TAGGING_TAG_FORMAT = "tagging:needs_{}"
+
+DEFAULT_TAGGING_TAGS = [
+    TAGGING_TAG_FORMAT.format(phase)
+    for phase in PHASES.keys()
+] + ["tagging:needs_relations"]
