@@ -136,7 +136,7 @@ class Artist(TagPhase):
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         for tag in current_post.tags:
-            if tag.primary_name == "status\\:wip":
+            if tag.primary_name == "status:wip":
                 return "wip_tags"
         return "meta"
 
@@ -199,7 +199,10 @@ class KinkTags(TagPhase):
         return _tags_to_tag_entries(tags)
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
-        return "upload"
+        for tag in current_post.tags:
+            if tag.primary_name == "status:final":
+                return "upload"
+        return "done"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
         return _list_our_characters_in_post(current_post)
