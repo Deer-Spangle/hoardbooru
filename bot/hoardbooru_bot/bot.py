@@ -56,6 +56,8 @@ class TrustedUser:
 class Bot:
     MAX_INLINE_ANSWERS = 30
     MAX_INLINE_FRESH_MEDIA = 1
+    MAX_TAG_BUTTON_LINES = 7
+    TAG_BUTTONS_PER_LINE = 3
 
     def __init__(self, config: dict) -> None:
         self.config = config
@@ -98,6 +100,7 @@ class Bot:
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
+        self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -374,9 +377,19 @@ class Bot:
             tags = sorted(tags, key=lambda t: t.tag_name)
             logger.info("Sorted tags by alphabet")
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
-        buttons += [
-            tag_buttons[n:n+3] for n in range(0, len(tag_buttons), 3)
+        tag_button_lines = [
+            tag_buttons[n:n+self.TAG_BUTTONS_PER_LINE] for n in range(0, len(tag_buttons), self.TAG_BUTTONS_PER_LINE)
         ]
+        page_num = int(menu_data["page"])
+        buttons += tag_button_lines[page_num*self.MAX_TAG_BUTTON_LINES : (page_num+1)*self.MAX_TAG_BUTTON_LINES]
+        # Pagination buttons
+        pagination_buttons = []
+        if page_num > 0:
+            pagination_buttons.append(Button.inline("⬅️ Prev page", f"tag_page:{page_num-1}".encode()))
+        if len(tag_button_lines) > (page_num+1)*self.MAX_TAG_BUTTON_LINES:
+            pagination_buttons.append(Button.inline("➡️ Next page", f"tag_page:{page_num+1}".encode()))
+        if pagination_buttons:
+            buttons += [pagination_buttons]
         # Cancel button
         buttons += [[Button.inline("🛑 Cancel", b"tag_phase:cancel")]]
         # Next phase button
@@ -442,6 +455,17 @@ class Bot:
             menu_data["order"] = "popular"
         if query_data == b"alphabetical":
             menu_data["order"] = "alphabetical"
+        menu_data["page"] = "0"
+        await self.post_tag_phase_menu(event_msg, menu_data)
+
+    async def tag_page_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"tag_page:"):
+            return
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        query_data = event.data[len(b"tag_page:"):]
+        logger.info("Changing tag page to: %s", query_data)
+        menu_data["page"] = query_data.decode()
         await self.post_tag_phase_menu(event_msg, menu_data)
 
     async def tag_init(self, event: events.NewMessage.Event) -> None:
