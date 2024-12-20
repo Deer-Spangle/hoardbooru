@@ -43,7 +43,7 @@ class TagPhase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def next_phase(self) -> str:
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         raise NotImplementedError()
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
@@ -65,7 +65,7 @@ class CommStatus(TagPhase):
             TagEntry("status:final", "final"),
         ]
 
-    def next_phase(self) -> str:
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         return "our_characters"
 
 
@@ -84,7 +84,7 @@ class OurCharacters(TagPhase):
             tag.primary_name,
         ) for tag in tags]
 
-    def next_phase(self) -> str:
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         return "other_characters"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
@@ -106,7 +106,7 @@ class OtherCharacters(TagPhase):
             tag.primary_name
         ) for tag in tags]
 
-    def next_phase(self) -> str:
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         return "artist"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
@@ -132,8 +132,11 @@ class Artist(TagPhase):
             tag.primary_name
         ) for tag in tags]
 
-    def next_phase(self) -> str:
-        return "wip_tags"
+    def next_phase(self, current_post: pyszuru.Post) -> str:
+        for tag in current_post.tags:
+            if tag.primary_name == "status\\:wip":
+                return "wip_tags"
+        return "meta"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
         character_tags = []

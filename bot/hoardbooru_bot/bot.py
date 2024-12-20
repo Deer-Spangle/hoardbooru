@@ -393,7 +393,7 @@ class Bot:
         # Cancel button
         buttons += [[Button.inline("🛑 Cancel", b"tag_phase:cancel")]]
         # Next phase button
-        next_phase = phase_cls.next_phase()
+        next_phase = phase_cls.next_phase(post)
         if next_phase == "done":
             buttons += [[Button.inline("🏁 Done!", b"tag_phase:done")]]
         else:
