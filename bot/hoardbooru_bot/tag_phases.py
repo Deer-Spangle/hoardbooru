@@ -1,6 +1,6 @@
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Type
 
 import pyszuru
 from telethon import Button
@@ -64,6 +64,9 @@ class TagPhase(ABC):
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
         raise NotImplementedError()
 
+    def post_check(self, current_post: pyszuru.Post) -> None:
+        pass
+
 
 class CommStatus(TagPhase):
     allow_ordering = False
@@ -82,6 +85,25 @@ class CommStatus(TagPhase):
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "our_characters"
+
+    def post_check(self, current_post: pyszuru.Post) -> None:
+        is_final = False
+        is_wip = False
+        for tag in current_post.tags:
+            if tag.primary_name == "status:final":
+                is_final = True
+            if tag.primary_name == "status:wip":
+                is_wip = True
+        if is_final and is_wip:
+            raise ValueError("Post cannot be both final and WIP")
+        if not is_final and not is_wip:
+            raise ValueError("Post must be at least one of final and WIP")
+        if is_final:
+            current_post.tags = [t for t in current_post.tags if t.primary_name != TAGGING_TAG_FORMAT.format("wip_tags")]
+            current_post.push()
+        if is_wip:
+            current_post.tags = [t for t in current_post.tags if t.primary_name != TAGGING_TAG_FORMAT.format("upload")]
+            current_post.push()
 
 
 class OurCharacters(TagPhase):
@@ -230,7 +252,7 @@ class UploadedTo(TagPhase):
         return _list_our_characters_in_post(current_post)
 
 
-PHASES = {
+PHASES: dict[str, Type[TagPhase]] = {
     "comm_status": CommStatus,
     "our_characters": OurCharacters,
     "other_characters": OtherCharacters,

@@ -475,12 +475,18 @@ class Bot:
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         post.tags = [tag for tag in post.tags if tag.primary_name != TAGGING_TAG_FORMAT.format(menu_data["tag_phase"])]
         post.push()
-        # It we're done, close the menu
+        # If we're done, close the menu
         if query_data == b"done":
             await event_msg.edit(
                 f"Tagging complete!\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
+        # Check the post_check method
+        try:
+            phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+            phase_cls.post_check(post)
+        except ValueError as e:
+            await event_msg.reply(f"Cannot move to next tag phase, due to error: {e}")
         # Move to next phase
         menu_data["tag_phase"] = query_data.decode()
         menu_data["page"] = "0"
