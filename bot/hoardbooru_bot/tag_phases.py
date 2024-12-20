@@ -221,7 +221,7 @@ class UploadedTo(TagPhase):
         ) for tag in tags]
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
-        pass
+        return "done"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
         return _list_our_characters_in_post(current_post)
