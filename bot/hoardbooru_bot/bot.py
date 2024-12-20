@@ -306,9 +306,9 @@ class Bot:
         await event.reply(
             f"{menu_data}This document has no duplicates.\nWould you like to create a new post?",
             buttons=[
-                Button.inline("Create post (SFW)", b"upload:sfw"),
-                Button.inline("Create post (NSFW)", b"upload:nsfw"),
-                Button.inline("Cancel", b"upload:cancel"),
+                [Button.inline("Create post (SFW)", b"upload:sfw")],
+                [Button.inline("Create post (NSFW)", b"upload:nsfw")],
+                [Button.inline("Cancel", b"upload:cancel")],
             ],
             parse_mode="html",
         )
