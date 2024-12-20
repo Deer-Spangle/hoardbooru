@@ -467,9 +467,9 @@ class Bot:
             )
             raise StopPropagation
         # Mark the current phase complete
-        logger.info("Marking current phase complete: %s", menu_data["phase"])
+        logger.info("Marking current phase complete: %s", menu_data["tag_phase"])
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
-        post.tags = [tag for tag in post.tags if tag.primary_name != TAGGING_TAG_FORMAT.format(menu_data["phase"])]
+        post.tags = [tag for tag in post.tags if tag.primary_name != TAGGING_TAG_FORMAT.format(menu_data["tag_phase"])]
         post.push()
         # It we're done, close the menu
         if query_data == b"done":
