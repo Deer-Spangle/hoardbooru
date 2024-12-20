@@ -266,11 +266,11 @@ class Bot:
                 await progress_msg.delete()
                 raise StopPropagation
             sorted_matches = sorted(match_results, key=lambda x: x.distance, reverse=True)
-            match_lines = [
+            match_lines = "\n".join([
                 f"- https://hoard.lan:8390/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
-            ]
+            ])
             await event.reply(
-                f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{'\n'.join(match_lines)}\n"
+                f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{match_lines}\n"
                 "\nAre you sure you want to create a new post?",
                 buttons=[
                     Button.inline("Create post", b"upload:yes"),
