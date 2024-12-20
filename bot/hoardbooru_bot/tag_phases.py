@@ -195,7 +195,7 @@ class KinkTags(TagPhase):
         return "Which of these kink and theme tags apply?"
 
     def list_tags(self) -> list[TagEntry]:
-        tags = self.hoardbooru.search_tag("default")
+        tags = self.hoardbooru.search_tag("category:default")
         return _tags_to_tag_entries(tags)
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
