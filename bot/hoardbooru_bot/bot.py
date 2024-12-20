@@ -338,7 +338,10 @@ class Bot:
         # Apply some default tags
         check_tags = []
         for check_tag_name in DEFAULT_TAGGING_TAGS:
-            check_tag = self.hoardbooru.getTag(check_tag_name)
+            try:
+                check_tag = self.hoardbooru.getTag(check_tag_name)
+            except pyszuru.api.SzurubooruHTTPError:
+                check_tag = self.hoardbooru.createTag(check_tag_name)
             check_tag.category = "meta-tagging"
             check_tag.push()
             check_tags.append(check_tag)
