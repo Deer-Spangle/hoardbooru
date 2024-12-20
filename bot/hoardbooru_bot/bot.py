@@ -445,7 +445,7 @@ class Bot:
         # Update the tags
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         htag = self.hoardbooru.getTag(tag_name)
-        implied_tags = htag.implications
+        implied_tags = list(htag.implications)
         add_tags = [htag] + implied_tags
         if htag.primary_name in [t.primary_name for t in post.tags]:
             add_tag_names = [t.primary_name for t in add_tags]
