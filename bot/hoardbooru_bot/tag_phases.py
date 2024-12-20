@@ -211,7 +211,7 @@ class UploadedTo(TagPhase):
         return "Uploaded to"
 
     def question(self) -> str:
-        "Which sites has (or hasn't) this been uploaded to?"
+        return "Which sites has (or hasn't) this been uploaded to?"
 
     def list_tags(self) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("default")
