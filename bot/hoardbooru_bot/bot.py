@@ -271,7 +271,7 @@ class Bot:
             ]
             await event.reply(
                 f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{'\n'.join(match_lines)}\n"
-                f"\nAre you sure you want to create a new post?",
+                "\nAre you sure you want to create a new post?",
                 buttons=[
                     Button.inline("Create post", b"upload:yes"),
                     Button.inline("Cancel", b"upload:cancel"),
