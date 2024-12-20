@@ -40,6 +40,12 @@ def filter_document(evt: events.NewMessage.Event) -> bool:
     return True
 
 
+def filter_photo(evt: events.NewMessage.Event) -> bool:
+    if not evt.message.photo:
+        return False
+    return True
+
+
 @dataclasses.dataclass
 class TrustedUser:
     telegram_id: int
@@ -95,6 +101,10 @@ class Bot:
         self.client.add_event_handler(
             self.upload_document,
             events.NewMessage(func=lambda e: filter_document(e), incoming=True, from_users=self.trusted_user_ids()),
+        )
+        self.client.add_event_handler(
+            self.upload_photo,
+            events.NewMessage(func=lambda e: filter_photo(e), incoming=True, from_users=self.trusted_user_ids()),
         )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
@@ -214,7 +224,9 @@ class Bot:
         )
 
     async def _upload_to_hoardbooru(self, file_path: str, file_name: Optional[str]) -> pyszuru.FileToken:
-        ext = file_ext(file_name)
+        ext = None
+        if file_name is not None:
+            ext = file_ext(file_name)
         if ext in ["sai", "swf", "xcf"]:
             logger.debug("Zipping up the %s file", ext)
             # Read the file bytes
@@ -236,12 +248,22 @@ class Bot:
         if not event.message.document:
             return
         logger.info("Received document to upload")
-        progress_msg = await event.reply("Uploading and checking for duplicates")
         # Get filename
         file_name = None
         for attribute in event.message.document.attributes:
             if isinstance(attribute, DocumentAttributeFilename):
                 file_name = attribute.file_name
+        await self._upload_media(event, file_name)
+
+    async def upload_photo(self, event: events.NewMessage.Event) -> None:
+        if not event.message.photo:
+            return
+        logger.info("Received photo to upload")
+        file_name = "photo.jpg"
+        await self._upload_media(event, file_name)
+
+    async def _upload_media(self, event: events.NewMessage.Event, file_name: Optional[str]) -> None:
+        progress_msg = await event.reply("Uploading and checking for duplicates")
         async with temp_sandbox_file(ext=None) as temp_path:
             # Download the document
             await event.message.download_media(temp_path)
