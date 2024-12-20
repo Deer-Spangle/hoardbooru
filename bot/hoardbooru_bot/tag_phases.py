@@ -117,8 +117,35 @@ class OtherCharacters(TagPhase):
         return character_tags
 
 
+class Artist(TagPhase):
+
+    def name(self) -> str:
+        return "Artist"
+
+    def question(self) -> str:
+        return "Who is the artist (or artists) of this piece?"
+
+    def list_tags(self) -> list[TagEntry]:
+        tags = self.hoardbooru.search_tag("category:artists")
+        return [TagEntry(
+            tag.primary_name,
+            tag.primary_name
+        ) for tag in tags]
+
+    def next_phase(self) -> str:
+        return "wip_tags"
+
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
+        character_tags = []
+        for tag in current_post.tags:
+            if tag.category == "our_characters":
+                character_tags.append(tag.primary_name)
+        return character_tags
+
+
 PHASES = {
     "comm_status": CommStatus,
     "our_characters": OurCharacters,
     "other_characters": OtherCharacters,
+    "artist": Artist,
 }
