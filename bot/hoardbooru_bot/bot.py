@@ -283,13 +283,13 @@ class Bot:
             exact_matches = [x for x in match_results if x.exact]
             if exact_matches:
                 exact_match: pyszuru.Post = exact_matches[0].post
-                post_url = f"https://hoard.lan:8390/post/{exact_match.id_}"
+                post_url = f"http://hoard.lan:8390/post/{exact_match.id_}"
                 await event.reply(f"This file already exists on hoardbooru.\nLink: {post_url}")
                 await progress_msg.delete()
                 raise StopPropagation
             sorted_matches = sorted(match_results, key=lambda x: x.distance, reverse=True)
             match_lines = "\n".join([
-                f"- https://hoard.lan:8390/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
+                f"- http://hoard.lan:8390/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
             ])
             await event.reply(
                 f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{match_lines}\n"
@@ -351,7 +351,7 @@ class Bot:
         await self.media_cache.store_in_cache(post)
         # Reply with post link
         await event.delete()
-        await original_msg.reply(f"Uploaded to hoardbooru:\nhttps://hoard.lan:8390/post/{post.id_}")
+        await original_msg.reply(f"Uploaded to hoardbooru:\nhttp://hoard.lan:8390/post/{post.id_}")
         # Start tagging phase
         tag_menu_data = {
             "post_id": str(post.id_),
