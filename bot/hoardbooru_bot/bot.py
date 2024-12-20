@@ -445,10 +445,13 @@ class Bot:
         # Update the tags
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         htag = self.hoardbooru.getTag(tag_name)
+        implied_tags = htag.implications
+        add_tags = [htag] + implied_tags
         if htag.primary_name in [t.primary_name for t in post.tags]:
-            post.tags = [t for t in post.tags if htag.primary_name != t.primary_name]
+            add_tag_names = [t.primary_name for t in add_tags]
+            post.tags = [t for t in post.tags if t.primary_name not in add_tag_names]
         else:
-            post.tags += [htag]
+            post.tags += add_tags
         post.push()
         # Update the menu
         await self.post_tag_phase_menu(event_msg, menu_data)
