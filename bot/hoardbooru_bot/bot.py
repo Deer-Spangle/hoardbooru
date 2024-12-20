@@ -295,8 +295,9 @@ class Bot:
                 f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{match_lines}\n"
                 "\nAre you sure you want to create a new post?",
                 buttons=[
-                    Button.inline("Create post", b"upload:yes"),
-                    Button.inline("Cancel", b"upload:cancel"),
+                    [Button.inline("Create post (SFW)", b"upload:sfw")],
+                    [Button.inline("Create post (NSFW)", b"upload:nsfw")],
+                    [Button.inline("Cancel", b"upload:cancel")],
                 ],
                 parse_mode="html",
             )
