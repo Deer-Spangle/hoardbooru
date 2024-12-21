@@ -10,6 +10,7 @@ import aiofiles
 import pyszuru
 from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
+from telethon.errors import MessageNotModifiedError
 from telethon.events import StopPropagation
 from telethon.tl.custom import InlineResult, InlineBuilder
 from telethon.tl.patched import Message
@@ -44,6 +45,18 @@ def filter_photo(evt: events.NewMessage.Event) -> bool:
     if not evt.message.photo:
         return False
     return True
+
+
+async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
+    if not evt.message.text:
+        return False
+    original_msg = await evt.get_reply_message()
+    if not original_msg:
+        return False
+    menu_data = parse_hidden_data(original_msg)
+    if not menu_data:
+        return False
+    return all(key in menu_data for key in ["post_id", "tag_phase", "page", "order"])
 
 
 @dataclasses.dataclass
@@ -105,6 +118,14 @@ class Bot:
         self.client.add_event_handler(
             self.upload_photo,
             events.NewMessage(func=lambda e: filter_photo(e), incoming=True, from_users=self.trusted_user_ids()),
+        )
+        self.client.add_event_handler(
+            self.add_tag_with_reply,
+            events.NewMessage(
+                func=lambda e: filter_reply_to_tag_menu(e),
+                incoming=True,
+                from_users=self.trusted_user_ids(),
+            ),
         )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
@@ -430,11 +451,15 @@ class Bot:
         else:
             buttons += [[Button.inline("⏭️ Next tagging phase", f"tag_phase:{next_phase}".encode())]]
         # Edit the menu
-        await msg.edit(
-            text=msg_text,
-            buttons=buttons,
-            parse_mode="html",
-        )
+        try:
+            await msg.edit(
+                text=msg_text,
+                buttons=buttons,
+                parse_mode="html",
+            )
+        except MessageNotModifiedError:
+            logger.info("Tag phase menu had no change, so message could not be updated")
+            pass
 
     async def tag_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"tag:"):
@@ -533,3 +558,41 @@ class Bot:
         tag_msg = await event.message.reply("Initialising tag helper")
         await self.post_tag_phase_menu(tag_msg, tag_menu_data)
         raise StopPropagation
+
+    async def add_tag_with_reply(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text:
+            return
+        # Fetch menu data
+        menu_msg = await event.get_reply_message()
+        if not menu_msg:
+            logger.info("New tag message is not a reply to a tag phase menu")
+            return
+        menu_data = parse_hidden_data(menu_msg)
+        # Create or fetch new tag
+        tag_name = event.message.text.strip().lower()
+        tag_is_new = False
+        try:
+            htag = self.hoardbooru.getTag(tag_name)
+            logger.info("Fetched existing tag: %s", tag_name)
+        except pyszuru.api.SzurubooruHTTPError:
+            htag = self.hoardbooru.createTag(tag_name)
+            tag_is_new = True
+            logger.info("Created new tag: %s", tag_name)
+        # Figure out category for new tag
+        phase = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+        tag_category = phase.new_tag_category()
+        if tag_category is None:
+            logger.info("User cannot add a new tag during this phase: %s", menu_data["tag_phase"])
+            await event.reply("You cannot add a new tag during this phase")
+            raise StopPropagation
+        logger.info("Setting new tag category")
+        htag.category = tag_category
+        htag.push()
+        # Update the post
+        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        post.tags += [htag]
+        post.push()
+        # Send reply
+        await event.reply(f"Added {'new' if tag_is_new else 'existing'} ({tag_category}) tag: {tag_name}")
+        logger.info("Updating tag phase menu")
+        await self.post_tag_phase_menu(menu_msg, menu_data)

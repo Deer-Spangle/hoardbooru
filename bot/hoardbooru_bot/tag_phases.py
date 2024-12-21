@@ -57,6 +57,9 @@ class TagPhase(ABC):
     def list_tags(self) -> list[TagEntry]:
         raise NotImplementedError()
 
+    def new_tag_category(self) -> Optional[str]:
+        return None
+
     @abstractmethod
     def next_phase(self, current_post: pyszuru.Post) -> str:
         raise NotImplementedError()
@@ -118,6 +121,9 @@ class OurCharacters(TagPhase):
         tags = self.hoardbooru.search_tag("category:our_characters")
         return _tags_to_tag_entries(tags)
 
+    def new_tag_category(self) -> Optional[str]:
+        return "our_characters"
+
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "other_characters"
 
@@ -137,6 +143,9 @@ class OtherCharacters(TagPhase):
         tags = self.hoardbooru.search_tag("category:characters")
         return _tags_to_tag_entries(tags)
 
+    def new_tag_category(self) -> Optional[str]:
+        return "characters"
+
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "artist"
 
@@ -155,6 +164,9 @@ class Artist(TagPhase):
     def list_tags(self) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:artists")
         return _tags_to_tag_entries(tags)
+
+    def new_tag_category(self) -> Optional[str]:
+        return "artists"
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         for tag in current_post.tags:
@@ -185,6 +197,9 @@ class WipTags(TagPhase):
             key=lambda tag_entry: tag_entry.tag_name,
         )
 
+    def new_tag_category(self) -> Optional[str]:
+        return "meta-wip"
+
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "meta"
 
@@ -200,6 +215,9 @@ class MetaTags(TagPhase):
     def list_tags(self) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:meta")
         return _tags_to_tag_entries(tags)
+
+    def new_tag_category(self) -> Optional[str]:
+        return "meta"
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "kink"
@@ -219,6 +237,9 @@ class KinkTags(TagPhase):
     def list_tags(self) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:default")
         return _tags_to_tag_entries(tags)
+
+    def new_tag_category(self) -> Optional[str]:
+        return "default"
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         for tag in current_post.tags:
