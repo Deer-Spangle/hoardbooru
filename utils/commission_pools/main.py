@@ -122,6 +122,19 @@ def create_pool(hoardbooru: pyszuru.API, title: str, post_ids: list[int]) -> Non
         }
     )
 
+
+def delete_pool(hoardbooru: pyszuru.API, pool_id: int, pool_version: int) -> None:
+    logger.debug("Deleting hoardbooru pool: %s", pool_id)
+    # noinspection PyProtectedMember
+    hoardbooru._call(
+        "DELETE",
+        ["pool", pool_id],
+        body={
+            "version": pool_version,
+        }
+    )
+
+
 def convert_relations_to_pools(hoardbooru: pyszuru.API) -> None:
     highest_comm_pool_id = find_highest_pool_id(hoardbooru)
     logger.info("Current highest commission pool ID: %s", highest_comm_pool_id)
@@ -149,13 +162,41 @@ def convert_relations_to_pools(hoardbooru: pyszuru.API) -> None:
     logger.info("Converted relations to pools")
 
 
+def convert_pools_to_tags(hoardbooru: pyszuru.API) -> None:
+    for pool in list_all_comm_pools(hoardbooru)[::-1]:
+        if pool["category"] != COMM_POOL_CATEGORY:
+            continue
+        pool_name = pool["names"][0]
+        logger.info("Processing pool: %s", pool_name)
+        try:
+            comm_tag = hoardbooru.createTag(pool_name)
+        except pyszuru.api.SzurubooruHTTPError as e:
+            if "TagAlreadyExistsError" in str(e):
+                comm_tag = hoardbooru.getTag(pool_name)
+            else:
+                raise e
+        comm_tag.category = "meta-commissions"
+        comm_tag.push()
+        logger.info("Created tag: %s", comm_tag)
+        for post_data in pool["posts"]:
+            logger.info("Migrating post ID: %s", post_data["id"])
+            post = hoardbooru.getPost(post_data["id"])
+            post.tags += [comm_tag]
+            post.push()
+            logger.info("Migrated post: %s", post)
+        logger.info("All posts tagged, deleting pool: %s", pool_name)
+        delete_pool(hoardbooru, pool["id"], pool["version"])
+        logger.info("Deleted pool")
+    logger.info("Converted all pools to tags")
+
+
 def main(config: dict) -> None:
     hoardbooru = pyszuru.API(
         config["hoardbooru"]["url"],
         username=config["hoardbooru"]["username"],
         token=config["hoardbooru"]["token"],
     )
-    convert_relations_to_pools(hoardbooru)
+    convert_pools_to_tags(hoardbooru)
     logger.info("Complete")
 
 if __name__ == '__main__':
