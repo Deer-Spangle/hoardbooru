@@ -54,7 +54,7 @@ class TagPhase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         raise NotImplementedError()
 
     def new_tag_category(self) -> Optional[str]:
@@ -80,7 +80,7 @@ class CommStatus(TagPhase):
     def question(self) -> str:
         return "Is this a WIP or final?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         return [
             TagEntry("status:wip", "wip"),
             TagEntry("status:final", "final"),
@@ -117,7 +117,7 @@ class OurCharacters(TagPhase):
     def question(self) -> str:
         return "Which of our characters does this include?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:our_characters")
         return _tags_to_tag_entries(tags)
 
@@ -139,7 +139,7 @@ class OtherCharacters(TagPhase):
     def question(self) -> str:
         return "Which other characters appear in this?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:characters")
         return _tags_to_tag_entries(tags)
 
@@ -161,7 +161,7 @@ class Artist(TagPhase):
     def question(self) -> str:
         return "Who is the artist (or artists) of this piece?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:artists")
         return _tags_to_tag_entries(tags)
 
@@ -187,7 +187,7 @@ class WipTags(TagPhase):
     def question(self) -> str:
         return "Do any of these wip-specific tags apply?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:meta-wip")
         return sorted(
             [TagEntry(
@@ -212,7 +212,7 @@ class MetaTags(TagPhase):
     def question(self) -> str:
         return "Do any of these meta tags, about the nature of the commission, apply?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:meta")
         return _tags_to_tag_entries(tags)
 
@@ -234,7 +234,7 @@ class KinkTags(TagPhase):
     def question(self) -> str:
         return "Which of these kink and theme tags apply?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:default")
         return _tags_to_tag_entries(tags)
 
@@ -259,7 +259,7 @@ class UploadedTo(TagPhase):
     def question(self) -> str:
         return "Which sites has (or hasn't) this been uploaded to?"
 
-    def list_tags(self) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
         tags = self.hoardbooru.search_tag("category:meta-uploads")
         return [TagEntry(
             tag.primary_name,
