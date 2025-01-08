@@ -61,6 +61,7 @@ def gather_post_relation_web(post: pyszuru.Post) -> list[pyszuru.Post]:
 
 
 def _fetch_comm_pools_page(hoardbooru: pyszuru, offset: int = 0) -> dict:
+    logger.debug("Fetching pools page offset: %s", offset)
     # noinspection PyProtectedMember
     return hoardbooru._call(
         "GET",
@@ -85,8 +86,9 @@ def list_all_comm_pools(hoardbooru: pyszuru.API) -> list[dict]:
     all_results = []
     resp = _fetch_comm_pools_page(hoardbooru)
     all_results += resp["results"]
-    while resp["total"] == resp["limit"]:
-        offset = resp["offset"]
+    offset = 0
+    while len(all_results) < resp["total"]:
+        offset += len(resp["results"])
         resp = _fetch_comm_pools_page(hoardbooru, offset)
         all_results += resp["results"]
     return all_results
