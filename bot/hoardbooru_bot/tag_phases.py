@@ -14,6 +14,14 @@ def _list_our_characters_in_post(current_post: pyszuru.Post) -> list[str]:
     return character_tags
 
 
+def _list_artists_in_post(current_post: pyszuru.Post) -> list[str]:
+    artist_tags = []
+    for tag in current_post.tags:
+        if tag.category == "artists":
+            artist_tags.append(tag.primary_name)
+    return artist_tags
+
+
 @dataclasses.dataclass
 class TagEntry:
     tag_name: str
@@ -169,13 +177,54 @@ class Artist(TagPhase):
         return "artists"
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
+        return "meta_commissions"
+
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
+        return _list_our_characters_in_post(current_post)
+
+
+class MetaCommission(TagPhase):
+    allow_ordering = False
+
+    def name(self) -> str:
+        return "Commission pool"
+
+    def question(self) -> str:
+        return "Is this a new commission or part of an existing one from this artist?"
+
+    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
+        # Figure out existing comm tags
+        artists = _list_artists_in_post(current_post)
+        artist_search = ",".join(artists)
+        previous_posts = self.hoardbooru.search_post(f"{artist_search} -id:{current_post.id_}")
+        comm_tags = set()
+        for post in previous_posts:
+            for tag in post.tags:
+                if tag.category == "meta-commissions":
+                    comm_tags.add(tag.primary_name)
+        # Figure out what a new comm would be
+        latest_comm_tags = self.hoardbooru.search_tag("category:meta-commissions -sort:name -usage-count:0")
+        latest_comm_tag = next(latest_comm_tags, None)
+        if latest_comm_tag is None:
+            latest_comm_number = 0
+        else:
+            latest_comm_number = int(latest_comm_tag.primary_name.removeprefix("commission_"))
+        new_comm_tag_name = "commission_" + str(latest_comm_number+1).zfill(5)
+        new_comm_tag_button = TagEntry(new_comm_tag_name, "New commission")
+        # Construct buttons
+        return [new_comm_tag_button] + sorted(
+            [TagEntry(tag, tag) for tag in comm_tags],
+            key=lambda tag_entry: tag_entry.tag_name,
+        )
+
+    def new_tag_category(self) -> Optional[str]:
+        return "meta-commissions"
+
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         for tag in current_post.tags:
             if tag.primary_name == "status:wip":
                 return "wip_tags"
         return "meta"
-
-    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
-        return _list_our_characters_in_post(current_post)
 
 
 class WipTags(TagPhase):
@@ -278,6 +327,7 @@ PHASES: dict[str, Type[TagPhase]] = {
     "our_characters": OurCharacters,
     "other_characters": OtherCharacters,
     "artist": Artist,
+    "meta_commission": MetaCommission,
     "wip_tags": WipTags,
     "meta": MetaTags,
     "kink": KinkTags,
