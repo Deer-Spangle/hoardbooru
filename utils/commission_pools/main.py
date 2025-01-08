@@ -72,6 +72,14 @@ def _fetch_comm_pools_page(hoardbooru: pyszuru, offset: int = 0) -> dict:
     )
 
 
+def _fetch_pool(hoardbooru: pyszuru, pool_id: int) -> dict:
+    # noinspection PyProtectedMember
+    return hoardbooru._call(
+        "GET",
+        ["pool", pool_id],
+    )
+
+
 def list_all_comm_pools(hoardbooru: pyszuru.API) -> list[dict]:
     logger.debug("Listing all hoardbooru commission pools")
     all_results = []
@@ -112,13 +120,7 @@ def create_pool(hoardbooru: pyszuru.API, title: str, post_ids: list[int]) -> Non
         }
     )
 
-
-def main(config: dict) -> None:
-    hoardbooru = pyszuru.API(
-        config["hoardbooru"]["url"],
-        username=config["hoardbooru"]["username"],
-        token=config["hoardbooru"]["token"],
-    )
+def convert_relations_to_pools(hoardbooru: pyszuru.API) -> None:
     highest_comm_pool_id = find_highest_pool_id(hoardbooru)
     logger.info("Current highest commission pool ID: %s", highest_comm_pool_id)
     for post in hoardbooru.search_post("-sort:id"):
@@ -142,8 +144,17 @@ def main(config: dict) -> None:
         create_pool(hoardbooru, comm_pool_title, related_ids)
         highest_comm_pool_id = next_comm_pool_id
         logger.info("Created pool: %s", comm_pool_title)
-    logger.info("Complete")
+    logger.info("Converted relations to pools")
 
+
+def main(config: dict) -> None:
+    hoardbooru = pyszuru.API(
+        config["hoardbooru"]["url"],
+        username=config["hoardbooru"]["username"],
+        token=config["hoardbooru"]["token"],
+    )
+    convert_relations_to_pools(hoardbooru)
+    logger.info("Complete")
 
 if __name__ == '__main__':
     # noinspection DuplicatedCode
