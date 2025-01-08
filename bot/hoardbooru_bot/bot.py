@@ -469,7 +469,13 @@ class Bot:
         tag_name = event.data[4:].decode()
         # Update the tags
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
-        htag = self.hoardbooru.getTag(tag_name)
+        try:
+            htag = self.hoardbooru.getTag(tag_name)
+        except pyszuru.api.SzurubooruHTTPError:
+            htag = self.hoardbooru.createTag(tag_name)
+            phase = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+            htag.category = phase.new_tag_category()
+            htag.push()
         implied_tags = list(htag.implications)
         add_tags = [htag] + implied_tags
         if htag.primary_name in [t.primary_name for t in post.tags]:
