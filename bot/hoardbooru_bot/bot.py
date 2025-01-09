@@ -618,18 +618,22 @@ class Bot:
     async def list_unfinished(self, event: events.NewMessage.Event) -> None:
         if not event.message.text.startswith("/unfinished"):
             return
+        logger.info("Listing unfinished commissions")
         # Send in progress message
         progress_msg = await event.message.reply("Checking for unfinished commissions")
         # List all commission tags
+        logger.debug("Listing all commission tags")
         comm_tags = self.hoardbooru.search_tag("category:meta-commissions", page_size=100)
         comm_tag_names = [t.primary_name for t in comm_tags]
         unfinished_comms = comm_tag_names
         # List all final posts
+        logger.debug("Listing all final posts to check against commission tags")
         for post in self.hoardbooru.search_post("status\:final", page_size=100):
             for tag in post.tags:
                 if tag.primary_name in unfinished_comms:
                     unfinished_comms.remove(tag.primary_name)
         # Find artists for each
+        logger.debug("Gathering artists and characters for commission info")
         unfinished_artists: dict[str, set[str]] = {}
         unfinished_characters: dict[str, set[str]] = {}
         for comm_tag in unfinished_comms:
