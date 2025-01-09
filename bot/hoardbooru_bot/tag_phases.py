@@ -54,7 +54,7 @@ class NewCommissionButton(Buttonable):
         )
 
     @staticmethod
-    def on_press(self, post: pyszuru.Post, press_evt: events.CallbackQuery.Event) -> None:
+    def on_press(post: pyszuru.Post, press_evt: events.CallbackQuery.Event) -> None:
         # Check if already commission tagged
         comm_tags = [t for t in post.tags if t.category == "meta-commissions"]
         if comm_tags:
@@ -71,9 +71,9 @@ class NewCommissionButton(Buttonable):
         new_comm_tag_name = "commission_" + str(latest_comm_number+1).zfill(5)
         # Create or get the tag
         try:
-            htag = self.hoardbooru.getTag(new_comm_tag_name)
+            htag = hoardbooru.getTag(new_comm_tag_name)
         except pyszuru.api.SzurubooruHTTPError:
-            htag = self.hoardbooru.createTag(new_comm_tag_name)
+            htag = hoardbooru.createTag(new_comm_tag_name)
             htag.category = "meta-commissions"
             htag.push()
         # Add tag to the post
