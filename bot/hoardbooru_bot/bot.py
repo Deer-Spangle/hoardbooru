@@ -110,6 +110,10 @@ class Bot:
         self.client.add_event_handler(
             self.tag_init, events.NewMessage(pattern="/tag", incoming=True, from_users=self.trusted_user_ids())
         )
+        self.client.add_event_handler(
+            self.list_unfinished,
+            events.NewMessage(pattern="/unfinished", incoming=True, from_users=self.trusted_user_ids()),
+        )
         self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_user_ids()))
         self.client.add_event_handler(
             self.upload_document,
@@ -602,3 +606,23 @@ class Bot:
         await event.reply(f"Added {'new' if tag_is_new else 'existing'} ({tag_category}) tag: {tag_name}")
         logger.info("Updating tag phase menu")
         await self.post_tag_phase_menu(menu_msg, menu_data)
+
+    async def list_unfinished(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text.startswith("/unfinished"):
+            return
+        # List all commission tags
+        comm_tags = self.hoardbooru.search_tag("category:meta-commissions")
+        comm_tag_names = [t.primary_name for t in comm_tags]
+        unfinished_comms = comm_tag_names
+        # List all final posts
+        for post in self.hoardbooru.search_post("status\:final"):
+            for tag in post.tags:
+                if tag.primary_name in unfinished_comms:
+                    unfinished_comms.remove(tag.primary_name)
+        # List all the unfinished tags
+        lines = []
+        for unfinished_tag in unfinished_comms:
+            lines.append(f"<a href=\"http://hoard.lan:8390/posts/query={unfinished_tag}\">{unfinished_tag}</a>")
+        await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines))
+        raise StopPropagation
+
