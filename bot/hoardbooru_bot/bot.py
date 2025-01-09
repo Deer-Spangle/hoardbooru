@@ -622,13 +622,13 @@ class Bot:
                 if tag.primary_name in unfinished_comms:
                     unfinished_comms.remove(tag.primary_name)
         # Find artists for each
-        unfinished_artists: dict[str, list[str]] = {}
+        unfinished_artists: dict[str, set[str]] = {}
         for comm_tag in unfinished_comms:
-            unfinished_artists[comm_tag] = []
+            unfinished_artists[comm_tag] = set()
             for post in self.hoardbooru.search_post(comm_tag, page_size=100):
                 for tag in post.tags:
                     if tag.category == "artists":
-                        unfinished_artists[comm_tag].append(tag.primary_name)
+                        unfinished_artists[comm_tag].add(tag.primary_name)
         # List all the unfinished tags
         lines = []
         for unfinished_tag, artists in unfinished_artists.items():
