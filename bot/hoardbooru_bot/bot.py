@@ -651,7 +651,7 @@ class Bot:
             our_characters = unfinished_characters[unfinished_tag]
             link_url = f"http://hoard.lan:8390/posts/query={unfinished_tag}"
             link_text = unfinished_tag.removeprefix("commission_").lstrip("0")
-            link_text += " (" + ", ".join(our_characters) + "by" + ", ".join(artists) + ")"
+            link_text += " (" + ", ".join(our_characters) + " by " + ", ".join(artists) + ")"
             lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
         await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
         await progress_msg.delete()
