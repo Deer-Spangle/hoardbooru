@@ -254,6 +254,7 @@ class MetaCommission(TagPhase):
         return [NewCommissionButton()] + sorted(
             [TagEntry(tag, tag) for tag in comm_tags],
             key=lambda tag_entry: tag_entry.tag_name,
+            reverse=True,
         )
 
     def new_tag_category(self) -> Optional[str]:
