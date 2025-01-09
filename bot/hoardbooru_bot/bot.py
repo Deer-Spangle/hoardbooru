@@ -611,11 +611,11 @@ class Bot:
         if not event.message.text.startswith("/unfinished"):
             return
         # List all commission tags
-        comm_tags = self.hoardbooru.search_tag("category:meta-commissions")
+        comm_tags = self.hoardbooru.search_tag("category:meta-commissions", page_size=100)
         comm_tag_names = [t.primary_name for t in comm_tags]
         unfinished_comms = comm_tag_names
         # List all final posts
-        for post in self.hoardbooru.search_post("status\:final"):
+        for post in self.hoardbooru.search_post("status\:final", page_size=100):
             for tag in post.tags:
                 if tag.primary_name in unfinished_comms:
                     unfinished_comms.remove(tag.primary_name)
