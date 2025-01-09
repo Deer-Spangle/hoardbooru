@@ -54,11 +54,11 @@ class NewCommissionButton(Buttonable):
         )
 
     @staticmethod
-    def on_press(post: pyszuru.Post, press_evt: events.CallbackQuery.Event) -> None:
+    async def on_press(post: pyszuru.Post, press_evt: events.CallbackQuery.Event) -> None:
         # Check if already commission tagged
         comm_tags = [t for t in post.tags if t.category == "meta-commissions"]
         if comm_tags:
-            press_evt.respond("This post already has a commission")
+            await press_evt.respond("This post already has a commission")
             raise StopPropagation
         # Find the latest commission tag name
         hoardbooru: pyszuru.API = post.api
