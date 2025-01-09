@@ -242,7 +242,7 @@ class MetaCommission(TagPhase):
         # Figure out existing comm tags
         artists = _list_artists_in_post(current_post)
         artist_search = ",".join(artists)
-        previous_posts = self.hoardbooru.search_post(f"{artist_search} -id:{current_post.id_}")
+        previous_posts = self.hoardbooru.search_post(artist_search)
         comm_tags = set()
         for post in previous_posts:
             for tag in post.tags:
