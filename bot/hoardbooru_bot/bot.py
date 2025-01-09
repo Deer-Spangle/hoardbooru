@@ -623,6 +623,6 @@ class Bot:
         lines = []
         for unfinished_tag in unfinished_comms:
             lines.append(f"<a href=\"http://hoard.lan:8390/posts/query={unfinished_tag}\">{unfinished_tag}</a>")
-        await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines))
+        await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
         raise StopPropagation
 
