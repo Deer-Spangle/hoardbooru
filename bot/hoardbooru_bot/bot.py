@@ -623,17 +623,23 @@ class Bot:
                     unfinished_comms.remove(tag.primary_name)
         # Find artists for each
         unfinished_artists: dict[str, set[str]] = {}
+        unfinished_characters: dict[str, set[str]] = {}
         for comm_tag in unfinished_comms:
             unfinished_artists[comm_tag] = set()
+            unfinished_characters[comm_tag] = set()
             for post in self.hoardbooru.search_post(comm_tag, page_size=100):
                 for tag in post.tags:
                     if tag.category == "artists":
                         unfinished_artists[comm_tag].add(tag.primary_name)
+                    if tag.category == "our_characters":
+                        unfinished_characters[comm_tag].add(tag.primary_name)
         # List all the unfinished tags
         lines = []
         for unfinished_tag, artists in unfinished_artists.items():
+            our_characters = unfinished_characters[unfinished_tag]
             link_url = f"http://hoard.lan:8390/posts/query={unfinished_tag}"
-            link_text = f"{unfinished_tag} by " + ", ".join(artists)
+            link_text = unfinished_tag.removeprefix("commission_").lstrip("0")
+            link_text += " (" + ", ".join(our_characters) + "by" + ", ".join(artists) + ")"
             lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
         await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
         await progress_msg.delete()
