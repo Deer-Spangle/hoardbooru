@@ -58,7 +58,7 @@ class NewCommissionButton(Buttonable):
         # Check if already commission tagged
         comm_tags = [t for t in post.tags if t.category == "meta-commissions"]
         if comm_tags:
-            await press_evt.respond("This post already has a commission")
+            await press_evt.reply("Cannot tag as a new commission as this post is already tagged with a commission.")
             raise StopPropagation
         # Find the latest commission tag name
         hoardbooru: pyszuru.API = post.api
