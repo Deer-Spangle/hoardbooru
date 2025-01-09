@@ -610,6 +610,8 @@ class Bot:
     async def list_unfinished(self, event: events.NewMessage.Event) -> None:
         if not event.message.text.startswith("/unfinished"):
             return
+        # Send in progress message
+        progress_msg = await event.message.reply("Checking for unfinished commissions")
         # List all commission tags
         comm_tags = self.hoardbooru.search_tag("category:meta-commissions", page_size=100)
         comm_tag_names = [t.primary_name for t in comm_tags]
@@ -624,5 +626,6 @@ class Bot:
         for unfinished_tag in unfinished_comms:
             lines.append(f"<a href=\"http://hoard.lan:8390/posts/query={unfinished_tag}\">{unfinished_tag}</a>")
         await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
+        await progress_msg.delete()
         raise StopPropagation
 
