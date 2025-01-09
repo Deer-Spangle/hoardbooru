@@ -20,7 +20,7 @@ from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
-from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT
+from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 
 logger = logging.getLogger(__name__)
@@ -471,8 +471,16 @@ class Bot:
         event_msg = await event.get_message()
         menu_data = parse_hidden_data(event_msg)
         tag_name = event.data[4:].decode()
-        # Update the tags
+        # Fetch the post
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        # Check for special buttons
+        if tag_name.startswith("special"):
+            special_cmd = tag_name.removeprefix("special:")
+            callback = SPECIAL_BUTTON_CALLBACKS[special_cmd]
+            await callback(post, event)
+            await self.post_tag_phase_menu(event_msg, menu_data)
+            raise StopPropagation
+        # Update the tags
         try:
             htag = self.hoardbooru.getTag(tag_name)
         except pyszuru.api.SzurubooruHTTPError:

@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Optional, Iterator, Type
 
 import pyszuru
-from telethon import Button
+from telethon import Button, events
+from telethon.events import StopPropagation
 
 
 def _list_our_characters_in_post(current_post: pyszuru.Post) -> list[str]:
@@ -22,8 +23,13 @@ def _list_artists_in_post(current_post: pyszuru.Post) -> list[str]:
     return artist_tags
 
 
+class Buttonable(ABC):
+    def to_button(self, post_tags: list[pyszuru.Tag]) -> Button:
+        raise NotImplementedError
+
+
 @dataclasses.dataclass
-class TagEntry:
+class TagEntry(Buttonable):
     tag_name: str
     button_name: str
     popularity: Optional[int] = dataclasses.field(default=None)
@@ -38,6 +44,46 @@ class TagEntry:
             button_text,
             f"tag:{self.tag_name}".encode(),
         )
+
+
+class NewCommissionButton(Buttonable):
+    def to_button(self, post_tags: list[pyszuru.Tag]) -> Button:
+        return Button.inline(
+            "New commission",
+            f"tag:special:new_commission",
+        )
+
+    @staticmethod
+    def on_press(self, post: pyszuru.Post, press_evt: events.CallbackQuery.Event) -> None:
+        # Check if already commission tagged
+        comm_tags = [t for t in post.tags if t.category == "meta-commissions"]
+        if comm_tags:
+            press_evt.respond("This post already has a commission")
+            raise StopPropagation
+        # Find the latest commission tag name
+        hoardbooru: pyszuru.API = post.api
+        latest_comm_tags = hoardbooru.search_tag("category:meta-commissions -sort:name -usage-count:0")
+        latest_comm_tag = next(latest_comm_tags, None)
+        if latest_comm_tag is None:
+            latest_comm_number = 0
+        else:
+            latest_comm_number = int(latest_comm_tag.primary_name.removeprefix("commission_"))
+        new_comm_tag_name = "commission_" + str(latest_comm_number+1).zfill(5)
+        # Create or get the tag
+        try:
+            htag = self.hoardbooru.getTag(new_comm_tag_name)
+        except pyszuru.api.SzurubooruHTTPError:
+            htag = self.hoardbooru.createTag(new_comm_tag_name)
+            htag.category = "meta-commissions"
+            htag.push()
+        # Add tag to the post
+        post.tags += [htag]
+        post.push()
+
+
+SPECIAL_BUTTON_CALLBACKS = {
+    "new_commission": NewCommissionButton.on_press,
+}
 
 
 def _tags_to_tag_entries(tags: Iterator[pyszuru.Tag]) -> list[TagEntry]:
@@ -192,7 +238,7 @@ class MetaCommission(TagPhase):
     def question(self) -> str:
         return "Is this a new commission or part of an existing one from this artist?"
 
-    def list_tags(self, current_post: pyszuru.Post) -> list[TagEntry]:
+    def list_tags(self, current_post: pyszuru.Post) -> list[Buttonable]:
         # Figure out existing comm tags
         artists = _list_artists_in_post(current_post)
         artist_search = ",".join(artists)
@@ -202,17 +248,8 @@ class MetaCommission(TagPhase):
             for tag in post.tags:
                 if tag.category == "meta-commissions":
                     comm_tags.add(tag.primary_name)
-        # Figure out what a new comm would be
-        latest_comm_tags = self.hoardbooru.search_tag("category:meta-commissions -sort:name -usage-count:0")
-        latest_comm_tag = next(latest_comm_tags, None)
-        if latest_comm_tag is None:
-            latest_comm_number = 0
-        else:
-            latest_comm_number = int(latest_comm_tag.primary_name.removeprefix("commission_"))
-        new_comm_tag_name = "commission_" + str(latest_comm_number+1).zfill(5)
-        new_comm_tag_button = TagEntry(new_comm_tag_name, "New commission")
         # Construct buttons
-        return [new_comm_tag_button] + sorted(
+        return [NewCommissionButton()] + sorted(
             [TagEntry(tag, tag) for tag in comm_tags],
             key=lambda tag_entry: tag_entry.tag_name,
         )
