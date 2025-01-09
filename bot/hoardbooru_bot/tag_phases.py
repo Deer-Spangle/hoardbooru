@@ -327,7 +327,7 @@ PHASES: dict[str, Type[TagPhase]] = {
     "our_characters": OurCharacters,
     "other_characters": OtherCharacters,
     "artist": Artist,
-    "meta_commission": MetaCommission,
+    "meta_commissions": MetaCommission,
     "wip_tags": WipTags,
     "meta": MetaTags,
     "kink": KinkTags,
