@@ -76,7 +76,6 @@ class Bot:
     MAX_INLINE_ANSWERS = 30
     MAX_INLINE_FRESH_MEDIA = 1
     MAX_TAG_BUTTON_LINES = 7
-    TAG_BUTTONS_PER_LINE = 3
 
     def __init__(self, config: dict) -> None:
         self.config = config
@@ -434,7 +433,8 @@ class Bot:
             logger.info("Sorted tags by alphabet")
         tag_buttons = [tag.to_button(post.tags) for tag in tags]
         tag_button_lines = [
-            tag_buttons[n:n+self.TAG_BUTTONS_PER_LINE] for n in range(0, len(tag_buttons), self.TAG_BUTTONS_PER_LINE)
+            tag_buttons[n:n+phase_cls.tag_buttons_per_line]
+            for n in range(0, len(tag_buttons), phase_cls.tag_buttons_per_line)
         ]
         page_num = int(menu_data["page"])
         buttons += tag_button_lines[page_num*self.MAX_TAG_BUTTON_LINES : (page_num+1)*self.MAX_TAG_BUTTON_LINES]

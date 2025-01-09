@@ -95,6 +95,7 @@ def _tags_to_tag_entries(tags: Iterator[pyszuru.Tag]) -> list[TagEntry]:
 
 class TagPhase(ABC):
     allow_ordering = True
+    tag_buttons_per_line = 3
 
     def __init__(self, hoardbooru: pyszuru.API) -> None:
         self.hoardbooru = hoardbooru
@@ -231,6 +232,7 @@ class Artist(TagPhase):
 
 class MetaCommission(TagPhase):
     allow_ordering = False
+    tag_buttons_per_line = 1
 
     def name(self) -> str:
         return "Commission pool"
