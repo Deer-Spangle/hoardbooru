@@ -10,6 +10,8 @@ readme = "README.md"
 python = "^3.12"
 pyszuru = "^0.3.1"
 pyyaml = "^6.0.2"
+notion-client = "^2.3.0"
+requests = "^2.32.3"
 
 
 [build-system]

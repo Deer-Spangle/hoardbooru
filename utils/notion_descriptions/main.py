@@ -5,18 +5,24 @@ import sys
 from logging.handlers import TimedRotatingFileHandler
 
 import pyszuru
+from notion_client import Client
+
+from utils.notion_descriptions.notion import fill_in_notion_descriptions
 
 logger = logging.getLogger()
 
 
 def main(config: dict) -> None:
+    notion = Client(auth=config["notion"]["integration_secret"])
     hoardbooru = pyszuru.API(
         config["hoardbooru"]["url"],
         username=config["hoardbooru"]["username"],
         token=config["hoardbooru"]["token"],
     )
-    fill_in_notion_descriptions(hoardbooru)
+    art_db_id = config["notion"]["art_db_id"]
+    fill_in_notion_descriptions(hoardbooru, notion, art_db_id)
     logger.info("Complete")
+
 
 if __name__ == '__main__':
     # noinspection DuplicatedCode
