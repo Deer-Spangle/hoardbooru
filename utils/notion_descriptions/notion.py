@@ -1,3 +1,4 @@
+import datetime
 import logging
 import tempfile
 from typing import Optional
@@ -7,6 +8,8 @@ import pyszuru
 import requests
 from notion_client import Client
 
+from utils.notion_descriptions.post_descriptions import get_post_description, NotionPostDocument, set_post_description
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -14,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 def fill_in_notion_descriptions(hoardbooru: pyszuru.API, notion: Client, art_db_id: str) -> None:
     art_db_resp = notion.databases.retrieve(art_db_id)
     cards = list_cards(notion, art_db_resp)
+    print(f"Found {len(cards)} cards in notion art database")
     for card_data in cards:
         process_card(card_data, hoardbooru)
     print("All complete, all cards checked!")
@@ -27,12 +31,6 @@ def list_cards(notion: Client, db_resp: dict) -> list[dict]:
         resp = notion.databases.query(
             db_resp["id"],
             start_cursor=next_token,
-            filter={
-                "property": "Uploaded to hoardbooru",
-                "checkbox": {
-                    "equals": False
-                }
-            },
             sorts=[
                 {
                     "property": "Card created",
@@ -51,20 +49,39 @@ def process_card(card_data: dict, hoardbooru: pyszuru.API) -> None:
     card_url = card_data["url"]
     logger.info("Processing card: \"%s\"" % card_title)
     logger.info("Card URL: %s", card_url)
-    for wip_data in card_data["properties"]["Attachments (WIPs)"]["files"]:
-        process_file(wip_data, hoardbooru)
-    for final_data in card_data["properties"]["Final"]["files"]:
-        process_file(final_data, hoardbooru)
+    for idx, wip_data in enumerate(card_data["properties"]["Attachments (WIPs)"]["files"]):
+        process_file(card_data, "Attachments (WIPs)", idx, hoardbooru)
+    for idx, final_data in enumerate(card_data["properties"]["Final"]["files"]):
+        process_file(card_data, "Final", idx, hoardbooru)
     logger.info("Finished processing card")
 
 
-def process_file(file_data: dict, hoardbooru: pyszuru.API) -> None:
+def process_file(card_data: dict, file_property_name: str, file_idx: int, hoardbooru: pyszuru.API) -> None:
+    file_data = card_data["properties"][file_property_name]["files"][file_idx]
     if file_data["type"] == "external":
         logger.info("Skipping URL-type file")
         return None
     file_token = transfer_notion_to_hoardbooru(file_data, hoardbooru)
     if post := match_on_hoardbooru(file_token, hoardbooru):
-        pass  # TODO
+        notion_doc = NotionPostDocument(
+            card_data,
+            file_property_name,
+            file_idx,
+            datetime.datetime.now(datetime.timezone.utc),
+        )
+        ensure_post_has_notion_doc(post, notion_doc)
+    else:
+        print("Matching file not found on hoardbooru!")
+
+
+def ensure_post_has_notion_doc(post: pyszuru.Post, notion_doc: NotionPostDocument) -> None:
+    description = get_post_description(post)
+    if description.has_doc_matching_type(NotionPostDocument):
+        print(f"Post already has Notion document in description: {link_to_post(post)}")
+        return
+    description.set_document_for_type(notion_doc)
+    set_post_description(post, description)
+    print("Updated post description!")
 
 
 def match_on_hoardbooru(file_token: pyszuru.FileToken, hoardbooru: pyszuru.API) -> Optional[pyszuru.Post]:
