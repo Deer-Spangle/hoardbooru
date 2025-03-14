@@ -1,5 +1,7 @@
 import datetime
+import json
 import logging
+import os
 import tempfile
 from typing import Optional
 from zipfile import ZipFile, ZipInfo
@@ -21,6 +23,47 @@ def fill_in_notion_descriptions(hoardbooru: pyszuru.API, notion: Client, art_db_
     for card_data in cards:
         process_card(card_data, hoardbooru)
     print("All complete, all cards checked!")
+
+
+def download_notion(notion: Client, art_db_id: str) -> None:
+    art_db_resp = notion.databases.retrieve(art_db_id)
+    cards = list_cards(notion, art_db_resp)
+    print(f"Found {len(cards)} cards in notion art database")
+    os.makedirs("store", exist_ok=True)
+    with open("store/card_json.json", "w") as f:
+        json.dump(cards, f)
+    for card_data in cards:
+        card_id = card_data["id"]
+        card_dir = os.path.join("store", card_id)
+        os.makedirs(card_dir, exist_ok=True)
+        for idx, wip_data in enumerate(card_data["properties"]["Attachments (WIPs)"]["files"]):
+            wip_dir = os.path.join(card_dir, "wips")
+            os.makedirs(wip_dir, exist_ok=True)
+            download_file(wip_dir, idx, wip_data)
+        for idx, final_data in enumerate(card_data["properties"]["Final"]["files"]):
+            final_dir = os.path.join(card_dir, "finals")
+            os.makedirs(final_dir, exist_ok=True)
+            download_file(final_dir, idx, final_data)
+    print("All complete, all cards downloaded!")
+
+
+def download_file(files_dir: str, idx: int, file_data: dict) -> None:
+    file_dir = os.path.join(files_dir, str(idx))
+    if os.path.exists(file_dir):
+        print(f"Skipping downloaded file: {file_dir}")
+    else:
+        os.makedirs(file_dir, exist_ok=True)
+        file_url = file_data.get("file",{}).get("url")
+        if file_url is None:
+            print(f"Skipping non-file: {file_dir}")
+            return
+        url_no_params, _ = file_url.split("?", 1)
+        _, file_name = url_no_params.rsplit("/", 1)
+        file_path = os.path.join(file_dir, file_name)
+        print(f"Downloading file: {file_path}")
+        file_resp = requests.get(file_url)
+        with open(file_path, "wb") as f:
+            f.write(file_resp.content)
 
 
 def list_cards(notion: Client, db_resp: dict) -> list[dict]:

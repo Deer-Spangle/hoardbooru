@@ -7,7 +7,7 @@ from logging.handlers import TimedRotatingFileHandler
 import pyszuru
 from notion_client import Client
 
-from utils.notion_descriptions.notion import fill_in_notion_descriptions
+from utils.notion_descriptions.notion import fill_in_notion_descriptions, download_notion
 
 logger = logging.getLogger()
 
@@ -20,7 +20,7 @@ def main(config: dict) -> None:
         token=config["hoardbooru"]["token"],
     )
     art_db_id = config["notion"]["art_db_id"]
-    fill_in_notion_descriptions(hoardbooru, notion, art_db_id)
+    download_notion(notion, art_db_id)
     logger.info("Complete")
 
 
