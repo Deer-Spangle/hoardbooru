@@ -231,6 +231,9 @@ class Bot:
         inline_answers: list[Coroutine[Any, Any, InlineResult]] = []
         num_fresh_media = 0
         for post, cache_entry in zip(posts, cache_entries):
+            if post.content.endswith(".webm"):
+                logger.warning("Skipping webm file, post ID %s", post.id)
+                continue
             if cache_entry is None:
                 if num_fresh_media >= self.MAX_INLINE_FRESH_MEDIA:
                     break
