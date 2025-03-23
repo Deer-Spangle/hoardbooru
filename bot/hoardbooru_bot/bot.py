@@ -205,8 +205,6 @@ class Bot:
         inline_query = event.text.strip()
         inline_offset = int(event.offset or "0")
         builder = event.builder
-        if inline_query == "":
-            return
         logger.info("Received inline query: %s, offset: %s", inline_query, inline_offset)
         # Add blocked tags
         user = self.trusted_user_by_id(event.sender_id)
