@@ -61,6 +61,16 @@ class TelegramMediaCache:
         await self.db.save_cache_entry(cache_entry)
         return cache_entry
 
+    async def log_in_cache_channel(
+            self,
+            log_message: str,
+    ) -> None:
+        await self.client.send_message(
+            self.cache_channel,
+            f"<b>Log:</b> {log_message}",
+            parse_mode="html",
+        )
+
     async def save_cache(
             self,
             post_id: int,
