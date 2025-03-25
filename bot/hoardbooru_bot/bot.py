@@ -216,7 +216,7 @@ class Bot:
         post_generator = self.hoardbooru.search_post(inline_query)
         posts = list(itertools.islice(post_generator, inline_offset, inline_offset + self.MAX_INLINE_ANSWERS))
         logger.info("Found %s posts for inline query", len(posts))
-        if len(posts) == 0:
+        if len(posts) == 0 and inline_offset == 0:
             await self.media_cache.log_in_cache_channel(f"Query returned zero posts: <pre>{inline_query}</pre>")
             logger.info("Logged zero-result query to cache channel")
         # Gather any cache entries which exist
