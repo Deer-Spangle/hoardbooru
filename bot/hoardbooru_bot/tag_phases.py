@@ -202,6 +202,28 @@ class OtherCharacters(TagPhase):
         return "characters"
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
+        return "species"
+
+    def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
+        return _list_our_characters_in_post(current_post)
+
+
+class Species(TagPhase):
+
+    def name(self) -> str:
+        return "Species"
+
+    def question(self) -> str:
+        return "Which species appear in this?"
+
+    def list_tags(self, current_post: pyszuru.Post) -> list[Buttonable]:
+        tags = self.hoardbooru.search_tag("category:species")
+        return _tags_to_tag_entries(tags)
+
+    def new_tag_category(self) -> Optional[str]:
+        return "species"
+
+    def next_phase(self, current_post: pyszuru.Post) -> str:
         return "artist"
 
     def popularity_filter_tags(self, current_post: pyszuru.Post) -> list[str]:
@@ -366,6 +388,7 @@ PHASES: dict[str, Type[TagPhase]] = {
     "comm_status": CommStatus,
     "our_characters": OurCharacters,
     "other_characters": OtherCharacters,
+    "species": Species,
     "artist": Artist,
     "meta_commissions": MetaCommission,
     "wip_tags": WipTags,
