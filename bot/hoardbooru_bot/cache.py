@@ -71,28 +71,6 @@ class TelegramMediaCache:
             parse_mode="html",
         )
 
-    async def save_cache(
-            self,
-            post_id: int,
-            is_photo: bool,
-            media_id: int,
-            access_hash: int,
-            file_url: str,
-            mime_type: str,
-            is_thumbnail: bool,
-    ) -> None:
-        cache_entry = CacheEntry(
-            post_id,
-            is_photo,
-            media_id,
-            access_hash,
-            file_url,
-            mime_type,
-            now(),
-            is_thumbnail,
-        )
-        await self.db.save_cache_entry(cache_entry)
-
     async def load_cache(self, post_id: int) -> Optional[CacheEntry]:
         entry = await self.db.fetch_cache_entry(post_id)
         return entry
