@@ -405,6 +405,8 @@ class Bot:
         post.push()
         # Store in cache
         await self.media_cache.store_in_cache(post, False)
+        if self.media_cache.load_cache(post.id_, True) is None:
+            await self.media_cache.store_in_cache(post, True)
         # Reply with post link
         await event.delete()
         await original_msg.reply(f"Uploaded to hoardbooru:\nhttp://hoard.lan:8390/post/{post.id_}")
