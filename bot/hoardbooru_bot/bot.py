@@ -24,6 +24,8 @@ from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 
+from bot.hoardbooru_bot.inline_params import InlineParams
+
 logger = logging.getLogger(__name__)
 
 PROM_PORT = 7266
@@ -230,12 +232,8 @@ class Bot:
             return
         inline_query += "".join(f" -{tag}" for tag in user.blocked_tags)
         logger.info("Query with blocked tags is: %s", inline_query)
-        query_terms = inline_query.split()
-        spoiler = False
-        if "spoiler" in query_terms:
-            spoiler = True
-            query_terms.remove("spoiler")
-            inline_query = " ".join(query_terms)
+        query_params = InlineParams()
+        inline_query = query_params.parse_inline_query(inline_query)
         # Get the biggest possible list of posts
         post_generator = self.hoardbooru.search_post(inline_query)
         posts = list(itertools.islice(post_generator, inline_offset, inline_offset + self.MAX_INLINE_ANSWERS))
@@ -263,9 +261,9 @@ class Bot:
                 if num_fresh_media >= self.MAX_INLINE_FRESH_MEDIA:
                     break
                 num_fresh_media += 1
-                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, spoiler=spoiler))
+                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, spoiler=query_params.spoiler))
             else:
-                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=spoiler))
+                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=query_params.spoiler))
         # Send the answers as a gallery
         next_offset = inline_offset + len(inline_answers)
         logger.info("Sending %s results for query: %s", len(inline_answers), inline_query)
