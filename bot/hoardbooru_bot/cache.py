@@ -61,9 +61,14 @@ class TelegramMediaCache:
             post.mime,
             now(),
             False,
-            sent_as_file,
+            False,
         )
         await self.db.save_cache_entry(cache_entry)
+        if sent_as_file:
+            # If it was sent as a file, we can save a duplicate entry for that
+            cache_entry.sent_as_file = True
+            await self.db.save_cache_entry(cache_entry)
+            cache_entry.sent_as_file = False
         return cache_entry
 
     async def log_in_cache_channel(
