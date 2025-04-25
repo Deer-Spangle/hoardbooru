@@ -93,11 +93,6 @@ class TelegramMediaCache:
         )
         await self.db.save_cache_entry(cache_entry)
 
-    async def load_cache(self, post_id: int, *, allow_inline: bool = False) -> Optional[CacheEntry]:
+    async def load_cache(self, post_id: int) -> Optional[CacheEntry]:
         entry = await self.db.fetch_cache_entry(post_id)
-        if entry is None:
-            return None
-        # Unless this is for inline use, only return full image results
-        if not allow_inline and entry.is_thumbnail:
-            return None
         return entry

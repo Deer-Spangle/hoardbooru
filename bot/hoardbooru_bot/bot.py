@@ -248,7 +248,7 @@ class Bot:
             logger.info("Logged zero-result query to cache channel")
         # Gather any cache entries which exist
         cache_entries = await asyncio.gather(*[
-            self.media_cache.load_cache(post.id_, allow_inline=True)
+            self.media_cache.load_cache(post.id_)
             for post in posts
         ])
         logger.info(
