@@ -173,16 +173,16 @@ class Bot:
             self,
             builder: InlineBuilder,
             post: pyszuru.Post,
-            spoiler: bool = False,
+            inline_params: InlineParams,
     ) -> InlineResult:
         cache_entry = await self.media_cache.store_in_cache(post)
-        return await self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=spoiler)
+        return await self._cache_entry_to_inline_answer(builder, cache_entry, inline_params)
 
     async def _cache_entry_to_inline_answer(
             self,
             builder: InlineBuilder,
             cache_entry: CacheEntry,
-            spoiler: bool = False,
+            inline_params: InlineParams,
     ) -> InlineResult:
         input_media_cls = InputPhoto if cache_entry.is_photo else InputDocument
         input_media = input_media_cls(cache_entry.media_id, cache_entry.access_hash, b"")
@@ -192,7 +192,7 @@ class Bot:
         if cache_entry.is_thumbnail:
             # TODO: remove this, unused
             buttons = [Button.inline("Click for full res", f"neaten_me:{cache_entry.post_id}")]
-        if spoiler:
+        if inline_params.spoiler:
             buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
             answer_id += ":spoiler"
         # Build the inline answer
@@ -261,9 +261,9 @@ class Bot:
                 if num_fresh_media >= self.MAX_INLINE_FRESH_MEDIA:
                     break
                 num_fresh_media += 1
-                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, spoiler=query_params.spoiler))
+                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, query_params))
             else:
-                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=query_params.spoiler))
+                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, query_params))
         # Send the answers as a gallery
         next_offset = inline_offset + len(inline_answers)
         logger.info("Sending %s results for query: %s", len(inline_answers), inline_query)
