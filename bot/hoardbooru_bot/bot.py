@@ -175,7 +175,7 @@ class Bot:
             post: pyszuru.Post,
             inline_params: InlineParams,
     ) -> InlineResult:
-        cache_entry = await self.media_cache.store_in_cache(post)
+        cache_entry = await self.media_cache.store_in_cache(post, inline_params.file)
         return await self._cache_entry_to_inline_answer(builder, cache_entry, inline_params)
 
     async def _cache_entry_to_inline_answer(
@@ -404,7 +404,7 @@ class Bot:
         post.tags = check_tags
         post.push()
         # Store in cache
-        await self.media_cache.store_in_cache(post)
+        await self.media_cache.store_in_cache(post, False)
         # Reply with post link
         await event.delete()
         await original_msg.reply(f"Uploaded to hoardbooru:\nhttp://hoard.lan:8390/post/{post.id_}")
