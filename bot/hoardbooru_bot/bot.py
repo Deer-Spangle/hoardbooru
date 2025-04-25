@@ -174,6 +174,7 @@ class Bot:
         # If thumbnail is cached, add a button
         buttons = None
         if cache_entry.is_thumbnail:
+            # TODO: remove this, unused
             buttons = [Button.inline("Click for full res", f"neaten_me:{cache_entry.post_id}")]
         # Build the inline answer
         if cache_entry.is_photo:
