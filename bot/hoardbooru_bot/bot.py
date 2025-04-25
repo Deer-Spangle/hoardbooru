@@ -632,7 +632,7 @@ class Bot:
         unfinished_comms = comm_tag_names
         # List all final posts
         logger.debug("Listing all final posts to check against commission tags")
-        for post in self.hoardbooru.search_post("status\:final", page_size=100):
+        for post in self.hoardbooru.search_post("status\\:final", page_size=100):
             for tag in post.tags:
                 if tag.primary_name in unfinished_comms:
                     unfinished_comms.remove(tag.primary_name)
