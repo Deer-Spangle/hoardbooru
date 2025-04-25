@@ -8,6 +8,8 @@ from telethon.tl.types import PeerChannel
 from hoardbooru_bot.database import CacheEntry, Database
 from hoardbooru_bot.utils import downloaded_file, convert_image
 
+from bot.hoardbooru_bot.inline_params import InlineParams
+
 
 def now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
@@ -74,6 +76,9 @@ class TelegramMediaCache:
             parse_mode="html",
         )
 
-    async def load_cache(self, post_id: int) -> Optional[CacheEntry]:
-        entry = await self.db.fetch_cache_entry(post_id)
-        return entry
+    async def load_cache(self, post_id: int, as_document: bool) -> Optional[CacheEntry]:
+        entries = await self.db.fetch_cache_entries(post_id)
+        for entry in entries:
+            if as_document == entry.sent_as_file:
+                return entry
+        return None

@@ -14,12 +14,6 @@ total_cache_entries = Gauge(
 )
 
 
-def optional_bool(db_value) -> Optional[bool]:
-    if db_value is None:
-        return None
-    return bool(db_value)
-
-
 class Database:
     def __init__(self):
         self.db: Optional[aiosqlite.Connection] = None
@@ -55,14 +49,15 @@ class Database:
                 return row[0]
             return 0
 
-    async def fetch_cache_entry(self, post_id: int) -> Optional["CacheEntry"]:
+    async def fetch_cache_entries(self, post_id: int) -> list["CacheEntry"]:
         async with self.db.execute(
                 "SELECT is_photo, media_id, access_hash, file_url, mime_type, cache_date, is_thumbnail, sent_as_file "
                 "FROM cache_entries WHERE post_id = ?",
                 (post_id,)
         ) as cursor:
+            results = []
             async for row in cursor:
-                return CacheEntry(
+                entry = CacheEntry(
                     post_id,
                     bool(row["is_photo"]),
                     row["media_id"],
@@ -71,9 +66,10 @@ class Database:
                     row["mime_type"],
                     dateutil.parser.parse(row["cache_date"]),
                     bool(row["is_thumbnail"]),
-                    optional_bool(row["sent_as_file"]),
+                    bool(row["sent_as_file"]),
                 )
-            return None
+                results.append(entry)
+            return results
 
     async def save_cache_entry(
             self,

@@ -248,7 +248,7 @@ class Bot:
             logger.info("Logged zero-result query to cache channel")
         # Gather any cache entries which exist
         cache_entries = await asyncio.gather(*[
-            self.media_cache.load_cache(post.id_)
+            self.media_cache.load_cache(post.id_, query_params.file)
             for post in posts
         ])
         logger.info(
@@ -698,7 +698,7 @@ class Bot:
             logger.warning("Unrecognised inline answer ID, does not match expected format: %s", event.id)
             raise StopPropagation
         post_id = int(event.id.removesuffix(":spoiler"))
-        cache_entry = await self.media_cache.load_cache(post_id)
+        cache_entry = await self.media_cache.load_cache(post_id, False)
         input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
         input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
         input_media = telethon.utils.get_input_media(input_doc)
@@ -715,7 +715,7 @@ class Bot:
             return
         logger.warning("Inline answer spoiler button was pressed with data: '%s'", event.data)
         post_id = int(event.data.decode().removeprefix("spoiler:"))
-        cache_entry = await self.media_cache.load_cache(post_id)
+        cache_entry = await self.media_cache.load_cache(post_id, False)
         input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
         input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
         input_media = telethon.utils.get_input_media(input_doc)
