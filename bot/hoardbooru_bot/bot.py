@@ -23,8 +23,7 @@ from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
-
-from bot.hoardbooru_bot.inline_params import InlineParams
+from hoardbooru_bot.inline_params import InlineParams
 
 logger = logging.getLogger(__name__)
 

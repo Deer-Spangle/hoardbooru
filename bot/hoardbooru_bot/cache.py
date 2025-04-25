@@ -8,8 +8,6 @@ from telethon.tl.types import PeerChannel
 from hoardbooru_bot.database import CacheEntry, Database
 from hoardbooru_bot.utils import downloaded_file, convert_image
 
-from bot.hoardbooru_bot.inline_params import InlineParams
-
 
 def now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
