@@ -79,7 +79,7 @@ class Database:
             "INSERT INTO cache_entries (post_id, is_photo, media_id, access_hash, file_url, mime_type, cache_date,"
             " is_thumbnail, sent_as_file) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(post_id) DO UPDATE SET "
+            "ON CONFLICT(post_id, sent_as_file) DO UPDATE SET "
             "is_photo=excluded.is_photo, media_id=excluded.media_id, access_hash=excluded.access_hash, "
             "file_url=excluded.file_url, mime_type=excluded.mime_type, cache_date=excluded.cache_date, "
             "is_thumbnail=excluded.is_thumbnail, sent_as_file=excluded.sent_as_file",
