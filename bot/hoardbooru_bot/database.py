@@ -13,6 +13,13 @@ total_cache_entries = Gauge(
     "Number of cache entries in the database",
 )
 
+
+def optional_bool(db_value) -> Optional[bool]:
+    if db_value is None:
+        return None
+    return bool(db_value)
+
+
 class Database:
     def __init__(self):
         self.db: Optional[aiosqlite.Connection] = None
@@ -24,6 +31,12 @@ class Database:
         async with aiofiles.open(directory / "db_schema.sql", "r") as f:
             db_schema = await f.read()
             await self.db.executescript(db_schema)
+        async with aiofiles.open(directory / "db_migration-001.sql", "r") as f:
+            db_migration = await f.read()
+            try:
+                await self.db.executescript(db_migration)
+            except Exception:
+                pass
         await self.db.commit()
         # TODO: If we're not using prometheus, speed up startup by skipping row count
         # if get_prometheus_port() is not None:
@@ -44,7 +57,7 @@ class Database:
 
     async def fetch_cache_entry(self, post_id: int) -> Optional["CacheEntry"]:
         async with self.db.execute(
-                "SELECT is_photo, media_id, access_hash, file_url, mime_type, cache_date, is_thumbnail "
+                "SELECT is_photo, media_id, access_hash, file_url, mime_type, cache_date, is_thumbnail, sent_as_file "
                 "FROM cache_entries WHERE post_id = ?",
                 (post_id,)
         ) as cursor:
@@ -58,6 +71,7 @@ class Database:
                     row["mime_type"],
                     dateutil.parser.parse(row["cache_date"]),
                     bool(row["is_thumbnail"]),
+                    optional_bool(row["sent_as_file"]),
                 )
             return None
 
@@ -66,14 +80,17 @@ class Database:
             cache_entry: "CacheEntry",
     ) -> None:
         await self.db.execute(
-            "INSERT INTO cache_entries (post_id, is_photo, media_id, access_hash, file_url, mime_type, cache_date, is_thumbnail) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "INSERT INTO cache_entries (post_id, is_photo, media_id, access_hash, file_url, mime_type, cache_date,"
+            " is_thumbnail, sent_as_file) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(post_id) DO UPDATE SET "
             "is_photo=excluded.is_photo, media_id=excluded.media_id, access_hash=excluded.access_hash, "
             "file_url=excluded.file_url, mime_type=excluded.mime_type, cache_date=excluded.cache_date, "
-            "is_thumbnail=excluded.is_thumbnail",
+            "is_thumbnail=excluded.is_thumbnail, sent_as_file=excluded.sent_as_file",
             (
-                cache_entry.post_id, cache_entry.is_photo, cache_entry.media_id, cache_entry.access_hash, cache_entry.file_url, cache_entry.mime_type, cache_entry.cache_date, cache_entry.is_thumbnail
+                cache_entry.post_id, cache_entry.is_photo, cache_entry.media_id, cache_entry.access_hash,
+                cache_entry.file_url, cache_entry.mime_type, cache_entry.cache_date, cache_entry.is_thumbnail,
+                cache_entry.send_as_file,
             )
         )
         await self.db.commit()
@@ -90,3 +107,4 @@ class CacheEntry:
     mime_type: str
     cache_date: datetime.datetime
     is_thumbnail: bool
+    send_as_file: Optional[bool]
