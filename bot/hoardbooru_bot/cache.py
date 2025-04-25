@@ -23,6 +23,7 @@ class TelegramMediaCache:
 
     async def store_in_cache(self, post: Post) -> CacheEntry:
         is_photo = False
+        sent_as_file = False
         async with downloaded_file(post.content) as dl_file:
             if post.mime.startswith("image") and post.mime != "image/gif":
                 is_photo = True
@@ -40,6 +41,7 @@ class TelegramMediaCache:
                     file_size=dl_file.file_size,
                 )
             else:
+                sent_as_file = True
                 msg = await self.client.send_file(
                     self.cache_channel,
                     dl_file.dl_path,
@@ -57,6 +59,7 @@ class TelegramMediaCache:
             post.mime,
             now(),
             False,
+            sent_as_file,
         )
         await self.db.save_cache_entry(cache_entry)
         return cache_entry
