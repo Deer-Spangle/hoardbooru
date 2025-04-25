@@ -189,12 +189,15 @@ class Bot:
         answer_id = str(cache_entry.post_id)
         # If thumbnail is cached, add a button
         buttons = None
+        caption = None
         if cache_entry.is_thumbnail:
             # TODO: remove this, unused
             buttons = [Button.inline("Click for full res", f"neaten_me:{cache_entry.post_id}")]
         if inline_params.spoiler:
             buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
             answer_id += ":spoiler"
+        if inline_params.link:
+            caption = f"http://hoard.lan:8390/post/{cache_entry.post_id}"
         # Build the inline answer
         if cache_entry.is_photo:
             return await builder.photo(
@@ -202,6 +205,7 @@ class Bot:
                 id=answer_id,
                 buttons=buttons,
                 parse_mode="html",
+                text=caption,
             )
         post_file_ext = file_ext(cache_entry.file_url)
         mime_type = {
@@ -219,6 +223,7 @@ class Bot:
             id=answer_id,
             buttons=buttons,
             parse_mode="html",
+            text=caption,
         )
 
     async def inline_search(self, event: events.InlineQuery.Event) -> None:
