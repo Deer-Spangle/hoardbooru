@@ -86,7 +86,7 @@ class Database:
             (
                 cache_entry.post_id, cache_entry.is_photo, cache_entry.media_id, cache_entry.access_hash,
                 cache_entry.file_url, cache_entry.mime_type, cache_entry.cache_date, cache_entry.is_thumbnail,
-                cache_entry.send_as_file,
+                cache_entry.sent_as_file,
             )
         )
         await self.db.commit()
@@ -103,4 +103,4 @@ class CacheEntry:
     mime_type: str
     cache_date: datetime.datetime
     is_thumbnail: bool
-    send_as_file: Optional[bool]
+    sent_as_file: Optional[bool]
