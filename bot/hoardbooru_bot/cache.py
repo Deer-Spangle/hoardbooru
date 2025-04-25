@@ -89,3 +89,6 @@ class TelegramMediaCache:
             if as_document == entry.sent_as_file:
                 return entry
         return None
+
+    async def cache_size(self) -> int:
+        return await self.db.count_cache_entries()

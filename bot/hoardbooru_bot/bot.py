@@ -116,6 +116,7 @@ class Bot:
             self.list_unfinished,
             events.NewMessage(pattern="/unfinished", incoming=True, from_users=self.trusted_user_ids()),
         )
+        self.client.add_event_handler(self.populate_cache, events.NewMessage(pattern="/populate", incoming=True))
         self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_user_ids()))
         self.client.add_event_handler(
             self.upload_document,
@@ -728,3 +729,43 @@ class Bot:
             buttons=None,
         )
         raise StopPropagation
+
+    async def populate_cache(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text.startswith("/populate"):
+            return
+        logger.info("Populating cache")
+        cache_progress_msg = await event.reply("⏳ Calculating cache size")
+        posts = []
+        for post in self.hoardbooru.search_post(""):
+            posts.append(post)
+        cache_size = await self.media_cache.cache_size()
+        expected_cache_size = len(posts) * 2
+        if cache_size == expected_cache_size:
+            await event.reply(f"There are {len(posts)} posts on hoardbooru. The cache is full, at {cache_size} entries")
+            await cache_progress_msg.delete()
+            raise StopPropagation
+        await event.reply(
+            f"There are {len(posts)} posts on hoardbooru. Cache size is {cache_size}/{expected_cache_size}"
+        )
+        await cache_progress_msg.delete()
+        populate_count = 10
+        populate_input = event.message.text.removeprefix("/populate").strip()
+        if populate_input:
+            populate_count = int(populate_input)
+        progress_msg = await event.reply(f"⏳ Populating {populate_count} cache entries")
+        populated = 0
+        for post in posts:
+            if populated >= populate_count:
+                break
+            if await self.media_cache.load_cache(post.id_, False) is None:
+                await self.media_cache.store_in_cache(post, False)
+                populated += 1
+            if populated >= populate_count:
+                break
+            if await self.media_cache.load_cache(post.id_, True) is None:
+                await self.media_cache.store_in_cache(post, True)
+                populated += 1
+        cache_size = await self.media_cache.cache_size()
+        await progress_msg.edit(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
+        raise StopPropagation
+
