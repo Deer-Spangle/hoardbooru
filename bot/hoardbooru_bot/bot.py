@@ -11,10 +11,11 @@ import pyszuru
 from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
 from telethon.errors import MessageNotModifiedError
-from telethon.events import StopPropagation
+from telethon.events import StopPropagation, Raw
 from telethon.tl.custom import InlineResult, InlineBuilder
 from telethon.tl.patched import Message
-from telethon.tl.types import InputPhoto, InputDocument, PeerChannel, DocumentAttributeFilename
+from telethon.tl.types import InputPhoto, InputDocument, PeerChannel, DocumentAttributeFilename, UpdateBotInlineSend
+import telethon.utils
 
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
@@ -135,6 +136,8 @@ class Bot:
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
         self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
+        self.client.add_event_handler(self.inline_sent_callback, events.Raw(UpdateBotInlineSend))
+        self.client.add_event_handler(self.spoiler_button_callback, events.CallbackQuery(pattern="spoiler:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -164,23 +167,37 @@ class Bot:
         await event.reply("Hey there! I'm not a very good bot yet, I'm quite early in development. I'm gonna be a bot to interface with hoardbooru")
         raise events.StopPropagation
 
-    async def _hoardbooru_post_to_inline_answer(self, builder: InlineBuilder, post: pyszuru.Post) -> InlineResult:
+    async def _hoardbooru_post_to_inline_answer(
+            self,
+            builder: InlineBuilder,
+            post: pyszuru.Post,
+            spoiler: bool = False,
+    ) -> InlineResult:
         cache_entry = await self.media_cache.store_in_cache(post)
-        return await self._cache_entry_to_inline_answer(builder, cache_entry)
+        return await self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=spoiler)
 
-    async def _cache_entry_to_inline_answer(self, builder: InlineBuilder, cache_entry: CacheEntry) -> InlineResult:
+    async def _cache_entry_to_inline_answer(
+            self,
+            builder: InlineBuilder,
+            cache_entry: CacheEntry,
+            spoiler: bool = False,
+    ) -> InlineResult:
         input_media_cls = InputPhoto if cache_entry.is_photo else InputDocument
         input_media = input_media_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+        answer_id = str(cache_entry.post_id)
         # If thumbnail is cached, add a button
         buttons = None
         if cache_entry.is_thumbnail:
             # TODO: remove this, unused
             buttons = [Button.inline("Click for full res", f"neaten_me:{cache_entry.post_id}")]
+        if spoiler:
+            buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
+            answer_id += ":spoiler"
         # Build the inline answer
         if cache_entry.is_photo:
             return await builder.photo(
                 file=input_media,
-                id=str(cache_entry.post_id),
+                id=answer_id,
                 buttons=buttons,
                 parse_mode="html",
             )
@@ -197,7 +214,7 @@ class Bot:
             title=f"{cache_entry.post_id}.{post_file_ext}",
             mime_type=mime_type,
             type="gif" if mime_type == "video/mp4" else None,
-            id=str(cache_entry.post_id),
+            id=answer_id,
             buttons=buttons,
             parse_mode="html",
         )
@@ -213,6 +230,12 @@ class Bot:
             return
         inline_query += "".join(f" -{tag}" for tag in user.blocked_tags)
         logger.info("Query with blocked tags is: %s", inline_query)
+        query_terms = inline_query.split()
+        spoiler = False
+        if "spoiler" in query_terms:
+            spoiler = True
+            query_terms.remove("spoiler")
+            inline_query = " ".join(query_terms)
         # Get the biggest possible list of posts
         post_generator = self.hoardbooru.search_post(inline_query)
         posts = list(itertools.islice(post_generator, inline_offset, inline_offset + self.MAX_INLINE_ANSWERS))
@@ -240,9 +263,9 @@ class Bot:
                 if num_fresh_media >= self.MAX_INLINE_FRESH_MEDIA:
                     break
                 num_fresh_media += 1
-                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post))
+                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, spoiler=spoiler))
             else:
-                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry))
+                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, spoiler=spoiler))
         # Send the answers as a gallery
         next_offset = inline_offset + len(inline_answers)
         logger.info("Sending %s results for query: %s", len(inline_answers), inline_query)
@@ -662,3 +685,41 @@ class Bot:
         await progress_msg.delete()
         raise StopPropagation
 
+    async def inline_sent_callback(self, event: UpdateBotInlineSend) -> None:
+        logger.info("Received callback for sent inline message with answer ID: '%s'", event.id)
+        if event.msg_id is None:
+            # If the message is sent without a button, there's no message ID provided, so we can't do much.
+            logger.info("Inline answer sent without a button. No action to perform. Answer ID: %s", event.id)
+            raise StopPropagation
+        if not event.id.endswith(":spoiler"):
+            logger.warning("Unrecognised inline answer ID, does not match expected format: %s", event.id)
+            raise StopPropagation
+        post_id = int(event.id.removesuffix(":spoiler"))
+        cache_entry = await self.media_cache.load_cache(post_id)
+        input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
+        input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+        input_media = telethon.utils.get_input_media(input_doc)
+        input_media.spoiler = True
+        await self.client.edit_message(
+            event.msg_id,
+            file=input_media,
+            buttons=None,
+        )
+        raise StopPropagation
+
+    async def spoiler_button_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"spoiler:"):
+            return
+        logger.warning("Inline answer spoiler button was pressed with data: '%s'", event.data)
+        post_id = int(event.data.decode().removeprefix("spoiler:"))
+        cache_entry = await self.media_cache.load_cache(post_id)
+        input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
+        input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+        input_media = telethon.utils.get_input_media(input_doc)
+        input_media.spoiler = True
+        await self.client.edit_message(
+            event.original_update.msg_id,
+            file=input_media,
+            buttons=None,
+        )
+        raise StopPropagation
