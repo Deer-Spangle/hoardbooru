@@ -765,6 +765,7 @@ class Bot:
                 await self.media_cache.store_in_cache(post, True)
                 populated += 1
         cache_size = await self.media_cache.cache_size()
-        await progress_msg.edit(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
+        await progress_msg.delete()
+        await event.reply(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
         raise StopPropagation
 
