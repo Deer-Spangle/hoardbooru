@@ -777,16 +777,22 @@ class Bot:
         progress_msg = await event.reply(f"⏳ Populating {populate_count} cache entries")
         populated = 0
         for post in posts:
+            # Check if we've populated enough
             if populated >= populate_count:
                 break
-            if await self.media_cache.load_cache(post.id_, False) is None:
-                await self.media_cache.store_in_cache(post, False)
-                populated += 1
+            # Populate photo
+            if populate_photos:
+                if await self.media_cache.load_cache(post.id_, False) is None:
+                    await self.media_cache.store_in_cache(post, False)
+                    populated += 1
+            # Check again if we've populated enough
             if populated >= populate_count:
                 break
-            if await self.media_cache.load_cache(post.id_, True) is None:
-                await self.media_cache.store_in_cache(post, True)
-                populated += 1
+            # Populate file
+            if populate_files:
+                if await self.media_cache.load_cache(post.id_, True) is None:
+                    await self.media_cache.store_in_cache(post, True)
+                    populated += 1
         # Post the completion message
         cache_size = await self.media_cache.cache_size(cache_ids, populate_files, populate_photos)
         await progress_msg.delete()
