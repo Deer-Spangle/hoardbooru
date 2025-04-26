@@ -61,11 +61,11 @@ class TelegramMediaCache:
             post.mime,
             now(),
             False,
-            False,
+            send_uncompressed,
         )
         await self.db.save_cache_entry(cache_entry)
-        if sent_as_file:
-            # If it was sent as a file, we can save a duplicate entry for that
+        if sent_as_file and not send_uncompressed:
+            # If it was sent as a file, even when not asking for that, we can save a duplicate entry for that
             cache_entry.sent_as_file = True
             await self.db.save_cache_entry(cache_entry)
             cache_entry.sent_as_file = False
