@@ -755,6 +755,10 @@ class Bot:
                 populate_photos = True
                 continue
             populate_search.append(populate_term)
+        logger.info(
+            "Aiming to populate %s items, (files=%s, photos=%s) for search query: %s",
+            populate_count, populate_files, populate_photos, " ".join(populate_search)
+        )
         # Work out how many matching posts on hoardbooru
         cache_progress_msg = await event.reply("⏳ Calculating cache size")
         posts = []
