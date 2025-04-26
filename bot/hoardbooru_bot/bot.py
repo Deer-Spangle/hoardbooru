@@ -733,12 +733,34 @@ class Bot:
         if not event.message.text.startswith("/populate"):
             return
         logger.info("Populating cache")
+        # Parse the input
+        populate_count = 10
+        populate_search = []
+        populate_files = True
+        populate_photos = True
+        populate_input = event.message.text.removeprefix("/populate").strip().split()
+        for populate_term in populate_input:
+            try:
+                populate_count = int(populate_input)
+                continue
+            except ValueError:
+                pass
+            if populate_term in InlineParams.FILE_TERMS:
+                populate_files = True
+                populate_photos = False
+                continue
+            if populate_term.startswith("-") and populate_term.removeprefix("-") in InlineParams.FILE_TERMS:
+                populate_files = False
+                populate_photos = True
+                continue
+            populate_search.append(populate_term)
+        # Work out how many matching posts on hoardbooru
         cache_progress_msg = await event.reply("⏳ Calculating cache size")
         posts = []
-        for post in self.hoardbooru.search_post(""):
+        for post in self.hoardbooru.search_post(" ".join(populate_search), page_size=100):
             posts.append(post)
-        cache_size = await self.media_cache.cache_size()
-        expected_cache_size = len(posts) * 2
+        cache_size = await self.media_cache.cache_size()  # TODO: make more accurate
+        expected_cache_size = len(posts) * (populate_files + populate_photos)
         if cache_size == expected_cache_size:
             await event.reply(f"There are {len(posts)} posts on hoardbooru. The cache is full, at {cache_size} entries")
             await cache_progress_msg.delete()
@@ -747,10 +769,7 @@ class Bot:
             f"There are {len(posts)} posts on hoardbooru. Cache size is {cache_size}/{expected_cache_size}"
         )
         await cache_progress_msg.delete()
-        populate_count = 10
-        populate_input = event.message.text.removeprefix("/populate").strip()
-        if populate_input:
-            populate_count = int(populate_input)
+        # Populate the cache
         progress_msg = await event.reply(f"⏳ Populating {populate_count} cache entries")
         populated = 0
         for post in posts:
@@ -764,6 +783,7 @@ class Bot:
             if await self.media_cache.load_cache(post.id_, True) is None:
                 await self.media_cache.store_in_cache(post, True)
                 populated += 1
+        # Post the completion message
         cache_size = await self.media_cache.cache_size()
         await progress_msg.delete()
         await event.reply(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
