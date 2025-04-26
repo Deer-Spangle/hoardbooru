@@ -759,7 +759,10 @@ class Bot:
         posts = []
         for post in self.hoardbooru.search_post(" ".join(populate_search), page_size=100):
             posts.append(post)
-        cache_size = await self.media_cache.cache_size()  # TODO: make more accurate
+        cache_ids = None
+        if populate_search:
+            cache_ids = [p.id_ for p in posts]
+        cache_size = await self.media_cache.cache_size(cache_ids, populate_files, populate_photos)
         expected_cache_size = len(posts) * (populate_files + populate_photos)
         if cache_size == expected_cache_size:
             await event.reply(f"There are {len(posts)} posts on hoardbooru. The cache is full, at {cache_size} entries")
@@ -784,7 +787,7 @@ class Bot:
                 await self.media_cache.store_in_cache(post, True)
                 populated += 1
         # Post the completion message
-        cache_size = await self.media_cache.cache_size()
+        cache_size = await self.media_cache.cache_size(cache_ids, populate_files, populate_photos)
         await progress_msg.delete()
         await event.reply(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
         raise StopPropagation

@@ -88,5 +88,12 @@ class TelegramMediaCache:
                 return entry
         return None
 
-    async def cache_size(self) -> int:
-        return await self.db.count_cache_entries()
+    async def cache_size(self, cache_ids: Optional[list[int]], include_files: bool, include_photos: bool) -> int:
+        if cache_ids is None:
+            return await self.db.count_all_cache_entries()
+        count_entries = 0
+        if include_files:
+            count_entries += await self.db.count_cache_entries(cache_ids, True)
+        if include_photos:
+            count_entries += await self.db.count_cache_entries(cache_ids, False)
+        return count_entries

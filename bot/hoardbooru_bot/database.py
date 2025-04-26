@@ -46,16 +46,26 @@ class Database:
         logger.info("Database setup complete")
         # TODO: If we're not using prometheus, speed up startup by skipping row count
         # if get_prometheus_port() is not None:
-        cache_entry_count = await self.count_cache_entries()
+        cache_entry_count = await self.count_all_cache_entries()
         total_cache_entries.set(cache_entry_count)
 
     async def stop(self) -> None:
         if self.db is not None:
             await self.db.close()
 
-    async def count_cache_entries(self) -> int:
+    async def count_all_cache_entries(self) -> int:
         async with self.db.execute(
             "SELECT COUNT(*) FROM cache_entries",
+        ) as cursor:
+            async for row in cursor:
+                return row[0]
+            return 0
+
+    async def count_cache_entries(self, post_ids: list[int], sent_as_file: bool) -> int:
+        params = ",".join(["?"]*len(post_ids))
+        async with self.db.execute(
+            f"SELECT COUNT(*) FROM cache_entries WHERE sent_as_file = ? AND post_id IN ({params})",
+            (sent_as_file, *post_ids),
         ) as cursor:
             async for row in cursor:
                 return row[0]
