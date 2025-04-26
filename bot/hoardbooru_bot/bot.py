@@ -149,6 +149,7 @@ class Bot:
             await self.client.run_until_disconnected()
         finally:
             logger.info("Bot sleepy bye-bye time")
+            await self.database.stop()
 
     def trusted_user_ids(self) -> list[int]:
         return [user.telegram_id for user in self.trusted_users]
