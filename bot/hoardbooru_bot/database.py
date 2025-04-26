@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +8,8 @@ import aiofiles
 import aiosqlite
 import dateutil.parser
 from prometheus_client import Gauge
+
+logger = logging.getLogger(__name__)
 
 total_cache_entries = Gauge(
     "hoardboorubot_db_cache_entries",
@@ -22,16 +25,25 @@ class Database:
         self.db = await aiosqlite.connect("hoardbooru_bot_db.db")
         self.db.row_factory = aiosqlite.Row
         directory = Path(__file__).parent
-        async with aiofiles.open(directory / "db_schema.sql", "r") as f:
-            db_schema = await f.read()
-            await self.db.executescript(db_schema)
-        async with aiofiles.open(directory / "db_migration-001.sql", "r") as f:
-            db_migration = await f.read()
+        migration_id = 0
+        while True:
+            filename = f"db_migration-{migration_id:03}.sql"
             try:
-                await self.db.executescript(db_migration)
-            except Exception:
-                pass
+                async with aiofiles.open(directory / filename, "r") as file:
+                    db_schema = await file.read()
+            except FileNotFoundError:
+                break
+            logger.info("Applying database migration: %s", filename)
+            if db_schema.lower().startswith("-- ignore exceptions"):
+                try:
+                    await self.db.executescript(db_schema)
+                except Exception:
+                    logger.debug("Migration %s failed to apply, ignoring", filename)
+            else:
+                await self.db.executescript(db_schema)
+            migration_id += 1
         await self.db.commit()
+        logger.info("Database setup complete")
         # TODO: If we're not using prometheus, speed up startup by skipping row count
         # if get_prometheus_port() is not None:
         cache_entry_count = await self.count_cache_entries()

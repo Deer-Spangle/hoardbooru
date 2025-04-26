@@ -7,13 +7,9 @@ create table if not exists cache_entries
     file_url              TEXT,
     mime_type             TEXT,
     cache_date            DATE    not null,
-    is_thumbnail          BOOLEAN not null,  -- If true, this cache is only for inline results
-    sent_as_file          BOOLEAN  -- Whether this was sent as a file, rather than a photo
+    is_thumbnail          BOOLEAN not null  -- If true, this cache is only for inline results
 );
 
 drop index if exists cache_entries_site_code_post_id_uindex;
 
 drop index if exists cache_entries_post_id_is_photo_uindex;
-
-create unique index if not exists cache_entries_post_id_sent_as_file_uindex
-    on cache_entries (post_id, sent_as_file);
