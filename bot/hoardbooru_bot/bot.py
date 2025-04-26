@@ -742,7 +742,7 @@ class Bot:
         populate_input = event.message.text.removeprefix("/populate").strip().split()
         for populate_term in populate_input:
             try:
-                populate_count = int(populate_input)
+                populate_count = int(populate_term)
                 continue
             except TypeError:
                 pass
