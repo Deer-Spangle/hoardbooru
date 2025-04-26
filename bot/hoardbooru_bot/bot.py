@@ -743,7 +743,7 @@ class Bot:
             try:
                 populate_count = int(populate_input)
                 continue
-            except ValueError:
+            except TypeError:
                 pass
             if populate_term in InlineParams.FILE_TERMS:
                 populate_files = True
