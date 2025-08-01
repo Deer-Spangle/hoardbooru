@@ -1,5 +1,4 @@
 import asyncio
-import dataclasses
 import glob
 import itertools
 import logging
@@ -24,6 +23,8 @@ from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file
 from hoardbooru_bot.inline_params import InlineParams
+
+from bot.hoardbooru_bot.users import TrustedUser
 
 logger = logging.getLogger(__name__)
 
@@ -59,23 +60,6 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
     if not menu_data:
         return False
     return all(key in menu_data for key in ["post_id", "tag_phase", "page", "order"])
-
-
-@dataclasses.dataclass
-class TrustedUser:
-    telegram_id: int
-    blocked_tags: list[str]
-    owner_tag: str
-    upload_tag_infix: str
-
-    @classmethod
-    def from_json(cls, data: dict) -> "TrustedUser":
-        return cls(
-            data["telegram_id"],
-            data.get("blocked_tags", []),
-            data["owner_tag"],
-            data["upload_tag_infix"],
-        )
 
 
 class Bot:
@@ -462,7 +446,8 @@ class Bot:
                 Button.inline(f"{alp_tick} Alphabetical", "tag_order:alphabetical"),
             ]]
         # Add the actual tag buttons
-        tags = phase_cls.list_tags(post)
+        user = self.trusted_user_by_id(msg.sender_id)
+        tags = phase_cls.list_tags(post, user)
         if phase_cls.allow_ordering and menu_data["order"] == "popular":
             for tag in tags:
                 tag.popularity = 0
