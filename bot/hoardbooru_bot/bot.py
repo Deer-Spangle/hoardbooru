@@ -65,12 +65,16 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 class TrustedUser:
     telegram_id: int
     blocked_tags: list[str]
+    owner_tag: str
+    upload_tag_infix: str
 
     @classmethod
     def from_json(cls, data: dict) -> "TrustedUser":
         return cls(
             data["telegram_id"],
             data.get("blocked_tags", []),
+            data["owner_tag"],
+            data["upload_tag_infix"],
         )
 
 
@@ -115,7 +119,14 @@ class Bot:
             self.list_unfinished,
             events.NewMessage(pattern="/unfinished", incoming=True, from_users=self.trusted_user_ids()),
         )
-        self.client.add_event_handler(self.populate_cache, events.NewMessage(pattern="/populate", incoming=True))
+        self.client.add_event_handler(
+            self.populate_cache,
+            events.NewMessage(pattern="/populate", incoming=True, from_users=self.trusted_user_ids()),
+        )
+        self.client.add_event_handler(
+            self.list_unuploaded,
+            events.NewMessage(pattern="/unuploaded", incoming=True, from_users=self.trusted_user_ids())
+        )
         self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_user_ids()))
         self.client.add_event_handler(
             self.upload_document,
@@ -600,6 +611,9 @@ class Bot:
         if not event.message.text.startswith("/tag"):
             return
         post_id = event.message.text[4:].strip()
+        if not post_id:
+            await event.reply("Please specify the ID of a post you wish to tag")
+            raise StopPropagation
         post = self.hoardbooru.getPost(int(post_id))
         tag_menu_data = {
             "post_id": str(post.id_),
@@ -802,4 +816,61 @@ class Bot:
         await progress_msg.delete()
         await event.reply(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
         raise StopPropagation
+
+    async def list_unuploaded(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text.startswith("/unuploaded"):
+            return
+        # Find the right user data
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Construct the list of all applicable posts
+        query_tags = event.message.text.removeprefix("/unuploaded").strip().split()
+        if "final" not in query_tags:
+            query_tags.append("final")
+        if user.owner_tag not in query_tags:
+            query_tags.append(user.owner_tag)
+        query_str = " ".join(query_tags)
+        # Gather posts into which are uploaded where
+        all_posts: list[pyszuru.Post] = []
+        e6_uploaded: list[pyszuru.Post] = []
+        e6_to_upload: list[pyszuru.Post] = []
+        e6_not_uploading: list[pyszuru.Post] = []
+        fa_uploaded: list[pyszuru.Post] = []
+        fa_to_upload: list[pyszuru.Post] = []
+        fa_not_uploading: list[pyszuru.Post] = []
+        for post in self.hoardbooru.search_post(query_str, page_size=100):
+            all_posts.append(post)
+            tag_names = [n for t in post.tags for n in t.names]
+            if "uploaded_to:e621" in tag_names:
+                e6_uploaded.append(post)
+            elif "uploaded_to:e621_not_posting" in tag_names:
+                e6_not_uploading.append(post)
+            else:
+                e6_to_upload.append(post)
+            user_infix = user.upload_tag_infix
+            if f"uploaded_to:{user_infix}_fa" in tag_names:
+                fa_uploaded.append(post)
+            elif f"uploaded_to:{user_infix}_not_posting" in tag_names:
+                fa_not_uploading.append(post)
+            else:
+                fa_to_upload.append(post)
+        # Post the message saying the current state of things.
+        msg_sections = [f"There are a total of {len(all_posts)} posts matching this search"]
+        e621_section_lines = ["e621 upload state:"]
+        e621_section_lines += [f"- {len(e6_uploaded)} Uploaded"]
+        e621_section_lines += [f"- {len(e6_not_uploading)} Not to upload"]
+        e621_section_lines += [f"- {len(e6_to_upload)} Remaining to upload"]
+        msg_sections += ["\n".join(e621_section_lines)]
+        fa_section_lines = ["FA upload state:"]
+        fa_section_lines += [f"- {len(fa_uploaded)} Uploaded"]
+        fa_section_lines += [f"- {len(fa_not_uploading)} Not to upload"]
+        fa_section_lines += [f"- {len(fa_to_upload)} Remaining to upload"]
+        msg_sections += ["\n".join(fa_section_lines)]
+        msg_text = "\n\n".join(msg_sections)
+        await event.reply(msg_text)
+        raise StopPropagation
+
+
+
 
