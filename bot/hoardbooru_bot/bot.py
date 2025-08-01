@@ -446,8 +446,7 @@ class Bot:
                 Button.inline(f"{alp_tick} Alphabetical", "tag_order:alphabetical"),
             ]]
         # Add the actual tag buttons
-        user = self.trusted_user_by_id(msg.sender_id)
-        tags = phase_cls.list_tags(post, user)
+        tags = phase_cls.list_tags(post)
         if phase_cls.allow_ordering and menu_data["order"] == "popular":
             for tag in tags:
                 tag.popularity = 0
