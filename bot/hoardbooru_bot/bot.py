@@ -424,7 +424,7 @@ class Bot:
         return self.popularity_cache
 
     async def post_tag_phase_menu(self, msg: Message, menu_data: dict[str, str]) -> None:
-        phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+        phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru, self.trusted_users)
         post = self.hoardbooru.getPost(int(menu_data["post_id"]))
         hidden_link = hidden_data(menu_data)
         # Log
@@ -446,7 +446,7 @@ class Bot:
                 Button.inline(f"{alp_tick} Alphabetical", "tag_order:alphabetical"),
             ]]
         # Add the actual tag buttons
-        tags = phase_cls.list_tags(post)
+        tags = phase_cls.list_tags(post) # TODO
         if phase_cls.allow_ordering and menu_data["order"] == "popular":
             for tag in tags:
                 tag.popularity = 0
@@ -514,7 +514,7 @@ class Bot:
             htag = self.hoardbooru.getTag(tag_name)
         except pyszuru.api.SzurubooruHTTPError:
             htag = self.hoardbooru.createTag(tag_name)
-            phase = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+            phase = PHASES[menu_data["tag_phase"]](self.hoardbooru, self.trusted_users)
             htag.category = phase.new_tag_category()
             htag.push()
         implied_tags = list(htag.implications)
@@ -555,7 +555,7 @@ class Bot:
             raise StopPropagation
         # Check the post_check method
         try:
-            phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+            phase_cls = PHASES[menu_data["tag_phase"]](self.hoardbooru, self.trusted_users)
             phase_cls.post_check(post)
         except ValueError as e:
             await event_msg.reply(f"Cannot move to next tag phase, due to error: {e}")
@@ -629,7 +629,7 @@ class Bot:
             tag_is_new = True
             logger.info("Created new tag: %s", tag_name)
         # Figure out category for new tag
-        phase = PHASES[menu_data["tag_phase"]](self.hoardbooru)
+        phase = PHASES[menu_data["tag_phase"]](self.hoardbooru, self.trusted_users)
         tag_category = phase.new_tag_category()
         if tag_category is None:
             logger.info("User cannot add a new tag during this phase: %s", menu_data["tag_phase"])

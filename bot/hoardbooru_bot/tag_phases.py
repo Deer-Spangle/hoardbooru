@@ -6,6 +6,16 @@ import pyszuru
 from telethon import Button, events
 from telethon.events import StopPropagation
 
+from bot.hoardbooru_bot.users import TrustedUser
+
+
+def _list_owners_in_post(current_post: pyszuru.Post) -> list[str]:
+    owner_tags = []
+    for tag in current_post.tags:
+        if tag.category == "owners":
+            owner_tags.append(tag.primary_name)
+    return owner_tags
+
 
 def _list_our_characters_in_post(current_post: pyszuru.Post) -> list[str]:
     character_tags = []
@@ -97,8 +107,9 @@ class TagPhase(ABC):
     allow_ordering = True
     tag_buttons_per_line = 3
 
-    def __init__(self, hoardbooru: pyszuru.API) -> None:
+    def __init__(self, hoardbooru: pyszuru.API, users: list[TrustedUser]) -> None:
         self.hoardbooru = hoardbooru
+        self.users = users
 
     @abstractmethod
     def name(self) -> str:
@@ -363,6 +374,8 @@ class KinkTags(TagPhase):
 
 
 class UploadedTo(TagPhase):
+    allow_ordering = False
+    tag_buttons_per_line = 1
 
     def name(self) -> str:
         return "Uploaded to"
@@ -371,11 +384,24 @@ class UploadedTo(TagPhase):
         return "Which sites has (or hasn't) this been uploaded to?"
 
     def list_tags(self, current_post: pyszuru.Post) -> list[Buttonable]:
-        tags = self.hoardbooru.search_tag("category:meta-uploads")
-        return [TagEntry(
-            tag.primary_name,
-            tag.primary_name.removeprefix("uploaded_to:"),
-        ) for tag in tags]
+        # Figure out which owner infixes are relevant
+        owners = _list_owners_in_post(current_post)
+        upload_infixes = []
+        for user in self.users:
+            if user.owner_tag in owners:
+                upload_infixes.append(user.upload_tag_infix)
+        # Figure out which tags are relevant
+        buttons = [
+            TagEntry("uploaded_to:e621", "e621: Uploaded"),
+            TagEntry("uploaded_to:e621_not_posting", "e621: Not posting"),
+        ]
+        for user_infix in upload_infixes:
+            user_title = user_infix.title()
+            buttons += [
+                TagEntry(f"uploaded_to:{user_infix}_fa", f"FA {user_title}: Uploaded"),
+                TagEntry(f"uploaded_to:{user_infix}_not_posting", f"FA {user_title}: Not posting"),
+            ]
+        return buttons
 
     def next_phase(self, current_post: pyszuru.Post) -> str:
         return "done"
