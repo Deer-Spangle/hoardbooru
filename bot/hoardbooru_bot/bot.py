@@ -808,6 +808,7 @@ class Bot:
         user = self.trusted_user_by_id(event.sender_id)
         if user is None:
             return
+        user_infix = user.upload_tag_infix
         # Construct the list of all applicable posts
         query_tags = event.message.text.removeprefix("/unuploaded").strip().split()
         if "final" not in query_tags:
@@ -832,7 +833,6 @@ class Bot:
                 e6_not_uploading.append(post)
             else:
                 e6_to_upload.append(post)
-            user_infix = user.upload_tag_infix
             if f"uploaded_to:{user_infix}_fa" in tag_names:
                 fa_uploaded.append(post)
             elif f"uploaded_to:{user_infix}_not_posting" in tag_names:
@@ -840,13 +840,13 @@ class Bot:
             else:
                 fa_to_upload.append(post)
         # Post the message saying the current state of things.
-        msg_sections = [f"There are a total of {len(all_posts)} posts matching this search"]
+        msg_sections = [f"There are a total of {len(all_posts)} posts matching this search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]
         e621_section_lines += [f"- {len(e6_uploaded)} Uploaded"]
         e621_section_lines += [f"- {len(e6_not_uploading)} Not to upload"]
         e621_section_lines += [f"- {len(e6_to_upload)} Remaining to upload"]
         msg_sections += ["\n".join(e621_section_lines)]
-        fa_section_lines = ["FA upload state:"]
+        fa_section_lines = [f"{user_infix.title()} FA upload state:"]
         fa_section_lines += [f"- {len(fa_uploaded)} Uploaded"]
         fa_section_lines += [f"- {len(fa_not_uploading)} Not to upload"]
         fa_section_lines += [f"- {len(fa_to_upload)} Remaining to upload"]
