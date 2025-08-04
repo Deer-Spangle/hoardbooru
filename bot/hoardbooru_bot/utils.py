@@ -123,3 +123,7 @@ def bold_if_true(text: str, is_true: bool) -> str:
 
 def tick_if_true(is_true: bool) -> str:
     return "✅" if is_true else ""
+
+
+def tick_cross_if_true(is_true: bool) -> str:
+    return "✅" if is_true else "❌"

@@ -25,7 +25,7 @@ from hoardbooru_bot.inline_params import InlineParams
 
 from bot.hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
 from bot.hoardbooru_bot.users import TrustedUser
-from bot.hoardbooru_bot.utils import bold_if_true
+from bot.hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +138,7 @@ class Bot:
         self.client.add_event_handler(self.inline_sent_callback, events.Raw(UpdateBotInlineSend))
         self.client.add_event_handler(self.spoiler_button_callback, events.CallbackQuery(pattern="spoiler:"))
         self.client.add_event_handler(self.unuploaded_page_callback, events.CallbackQuery(pattern="unuploaded:"))
+        self.client.add_event_handler(self.upload_tag_callback, events.CallbackQuery(pattern="upload_tag:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -859,26 +860,74 @@ class Bot:
         await self.render_unuploaded_page_menu(event_msg, post_id, user)
         raise StopPropagation
 
+    async def upload_tag_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"upload_tag:"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Log callback data
+        callback_data = event.data[len(b"upload_tag:"):].decode()
+        logger.info("Upload tag menu callback data: %s", callback_data)
+        # Find the right post
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        # Fetch the post
+        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        # Update the tags
+        tag_name = f"uploaded_to:{callback_data}"
+        htag = self.hoardbooru.getTag(tag_name)
+        if htag.primary_name in [t.primary_name for t in post.tags]:
+            post.tags = [t for t in post.tags if t.primary_name != htag.primary_name]
+        else:
+            post.tags.append(htag)
+        post.push()
+        # Update the menu
+        await self.render_unuploaded_page_menu(event_msg, post.id_, user)
+        raise StopPropagation
+
     async def render_unuploaded_page_menu(self, msg: Message, post_id: int, user: TrustedUser) -> None:
         menu_data = parse_hidden_data(msg)
+        menu_data["post_id"] = str(post_id)
         post = self.hoardbooru.getPost(post_id)
         post_status = PostUploadState(post, user.upload_tag_infix)
+        # Fetch the post media
         cache_entry = await self.media_cache.load_cache(post_id, False)
         if cache_entry is None:
             cache_entry = await self.media_cache.store_in_cache(post, False)
         input_media = cache_enty_to_inline_media(cache_entry)
+        # Construct the state buttons
+        state_buttons = []
+        state_buttons += [[Button.inline(
+            f"{tick_cross_if_true(post_status.e6_uploaded)} e621: Uploaded",
+            f"upload_tag:e621",
+        )]]
+        state_buttons += [[Button.inline(
+            f"{tick_cross_if_true(post_status.e6_not_uploading)} e621: Not uploading",
+            f"upload_tag:e621_not_posting",
+        )]]
+        state_buttons += [[Button.inline(
+            f"{tick_cross_if_true(post_status.fa_uploaded)} FA: Uploaded",
+            f"upload_tag:{user.upload_tag_infix}_fa",
+        )]]
+        state_buttons += [[Button.inline(
+            f"{tick_cross_if_true(post_status.fa_not_uploading)} FA: Not uploading",
+            f"upload_tag:{user.upload_tag_infix}_not_posting",
+        )]]
+        # Construct pagination buttons
         query = menu_data["query"]
         upload_states = PostsByUploadedState.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
         next_posts = [p for p in upload_states.posts_to_upload if p.id_ > post_id]
         prev_posts = [p for p in upload_states.posts_to_upload if p.id_ < post_id]
-        buttons = []
+        pagination_button_row = []
         if prev_posts:
             prev_post = max(prev_posts, key=lambda p: p.id_)
-            buttons.append(Button.inline("Prev", f"unuploaded:{prev_post.id_}"))
-        buttons.append(Button.inline("Cancel", f"unuploaded:cancel"))
+            pagination_button_row.append(Button.inline("⬅️ Prev", f"unuploaded:{prev_post.id_}"))
+        pagination_button_row.append(Button.inline("🛑 Cancel", f"unuploaded:cancel"))
         if next_posts:
             next_post = min(next_posts, key=lambda p: p.id_)
-            buttons.append(Button.inline("Next", f"unuploaded:{next_post.id_}"))
+            pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
+        # Construct message text
         menu_data_str = hidden_data(menu_data)
         total_to_upload = len(upload_states.posts_to_upload)
         lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
@@ -888,6 +937,6 @@ class Bot:
         await msg.edit(
             text = "\n".join(lines),
             file = input_media,
-            buttons = buttons,
+            buttons = state_buttons + [pagination_button_row],
             parse_mode = "html",
         )
