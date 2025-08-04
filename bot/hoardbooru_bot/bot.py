@@ -135,6 +135,7 @@ class Bot:
         self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
         self.client.add_event_handler(self.inline_sent_callback, events.Raw(UpdateBotInlineSend))
         self.client.add_event_handler(self.spoiler_button_callback, events.CallbackQuery(pattern="spoiler:"))
+        self.client.add_event_handler(self.unuploaded_page_callback, events.CallbackQuery(pattern="unuploaded:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -847,9 +848,51 @@ class Bot:
         fa_section_lines += [f"- {len(fa_to_upload)} Remaining to upload"]
         msg_sections += ["\n".join(fa_section_lines)]
         msg_text = "\n\n".join(msg_sections)
-        await event.reply(msg_text)
+        # Construct menu info and buttons
+        menu_data = {
+            "query": query_str,
+        }
+        menu_data_str = hidden_data(menu_data)
+        earliest_post = min(all_posts, key=lambda post: post.id_)
+        buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
+        await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
         raise StopPropagation
 
-
+    async def unuploaded_page_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"unuploaded:"):
+            return
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        callback_data = event.data[len(b"unuploaded:"):].decode()
+        logger.info("Unuploaded menu callback data: %s", callback_data)
+        post_id = int(callback_data)
+        post = self.hoardbooru.getPost(post_id)
+        cache_entry = await self.media_cache.load_cache(post_id, False)
+        if cache_entry is None:
+            cache_entry = await self.media_cache.store_in_cache(post, False)
+        input_media = cache_enty_to_inline_media(cache_entry)
+        query = menu_data["query"]
+        all_posts = []
+        for post in self.hoardbooru.search_post(query, page_size=100):
+            all_posts.append(post)
+        next_posts = [p for p in all_posts if p.id_ > post_id]
+        prev_posts = [p for p in all_posts if p.id_ < post_id]
+        buttons = []
+        if prev_posts:
+            prev_post = max(prev_posts, key=lambda p: p.id_)
+            buttons.append(Button.inline("Prev", f"unuploaded:{prev_post.id_}"))
+        buttons.append(Button.inline("Cancel", f"unuploaded:cancel"))
+        if next_posts:
+            next_post = min(next_posts, key=lambda p: p.id_)
+            buttons.append(Button.inline("Next", f"unuploaded:{next_post.id_}"))
+        menu_data_str = hidden_data(menu_data)
+        link = f"{self.hoardbooru_url}/posts/{post_id}"
+        await event.edit(
+            text = f"{menu_data_str}Showing menu for Post {post_id}\n{link}",
+            file = input_media,
+            buttons = buttons,
+            parse_mode = "html",
+        )
+        raise StopPropagation
 
 
