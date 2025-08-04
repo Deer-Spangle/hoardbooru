@@ -113,3 +113,9 @@ def cache_enty_to_inline_media(cache_entry: "CacheEntry") -> Union[InputMediaPho
     input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
     input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
     return telethon.utils.get_input_media(input_doc)
+
+
+def bold_if_true(text: str, is_true: bool) -> str:
+    if is_true:
+        return f"<b>{text}</b>"
+    return text

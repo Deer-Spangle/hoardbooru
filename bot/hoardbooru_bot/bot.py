@@ -23,8 +23,9 @@ from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_enty_to_inline_media
 from hoardbooru_bot.inline_params import InlineParams
 
-from bot.hoardbooru_bot.posted_state import PostsByUploadedState
+from bot.hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
 from bot.hoardbooru_bot.users import TrustedUser
+from bot.hoardbooru_bot.utils import bold_if_true
 
 logger = logging.getLogger(__name__)
 
@@ -861,6 +862,7 @@ class Bot:
     async def render_unuploaded_page_menu(self, msg: Message, post_id: int, user: TrustedUser) -> None:
         menu_data = parse_hidden_data(msg)
         post = self.hoardbooru.getPost(post_id)
+        post_status = PostUploadState(post, user.upload_tag_infix)
         cache_entry = await self.media_cache.load_cache(post_id, False)
         if cache_entry is None:
             cache_entry = await self.media_cache.store_in_cache(post, False)
@@ -881,6 +883,8 @@ class Bot:
         total_to_upload = len(upload_states.posts_to_upload)
         lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
         lines += [f"{self.hoardbooru_url}/post/{post_id}"]
+        lines += [f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}"]
+        lines += [f"FA State: {bold_if_true(post_status.fa_state, post_status.fa_to_upload)}"]
         await msg.edit(
             text = "\n".join(lines),
             file = input_media,
