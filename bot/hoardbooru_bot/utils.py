@@ -119,3 +119,7 @@ def bold_if_true(text: str, is_true: bool) -> str:
     if is_true:
         return f"<b>{text}</b>"
     return text
+
+
+def tick_if_true(is_true: bool) -> str:
+    return "✅" if is_true else ""

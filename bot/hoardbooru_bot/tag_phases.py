@@ -7,6 +7,7 @@ from telethon import Button, events
 from telethon.events import StopPropagation
 
 from bot.hoardbooru_bot.users import TrustedUser
+from bot.hoardbooru_bot.utils import tick_if_true
 
 
 def _list_owners_in_post(current_post: pyszuru.Post) -> list[str]:
@@ -46,7 +47,7 @@ class TagEntry(Buttonable):
 
     def to_button(self, post_tags: list[pyszuru.Tag]) -> Button:
         tag_names = [n for t in post_tags for n in t.names]
-        tick = "✅" if self.tag_name in tag_names else ""
+        tick = tick_if_true(self.tag_name in tag_names)
         button_text = f"{tick}{self.button_name}"
         if self.popularity is not None:
             button_text += f" ({self.popularity})"
