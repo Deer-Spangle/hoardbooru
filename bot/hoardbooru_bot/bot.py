@@ -812,6 +812,7 @@ class Bot:
         if user.owner_tag not in query_tags:
             query_tags.append(user.owner_tag)
         query_str = " ".join(query_tags)
+        logger.info(f"Got unuploaded command with query: {query_str}")
         # Gather posts into which are uploaded where
         all_posts: list[pyszuru.Post] = []
         posts_to_upload: list[pyszuru.Post] = []
@@ -868,10 +869,19 @@ class Bot:
         if not event.data.startswith(b"unuploaded:"):
             return
         event_msg = await event.get_message()
-        menu_data = parse_hidden_data(event_msg)
         callback_data = event.data[len(b"unuploaded:"):].decode()
         logger.info("Unuploaded menu callback data: %s", callback_data)
+        # Handle cancel callbacks
+        if callback_data == "cancel":
+            await event_msg.edit("Unuploaded media handling cancelled.", buttons=None)
+            raise StopPropagation
+        # Handle post ID callbacks
         post_id = int(callback_data)
+        await self.render_unuploaded_page_menu(event_msg, post_id)
+        raise StopPropagation
+
+    async def render_unuploaded_page_menu(self, msg: Message, post_id: int) -> None:
+        menu_data = parse_hidden_data(msg)
         post = self.hoardbooru.getPost(post_id)
         cache_entry = await self.media_cache.load_cache(post_id, False)
         if cache_entry is None:
@@ -893,12 +903,9 @@ class Bot:
             buttons.append(Button.inline("Next", f"unuploaded:{next_post.id_}"))
         menu_data_str = hidden_data(menu_data)
         link = f"{self.hoardbooru_url}/post/{post_id}"
-        await event.edit(
+        await msg.edit(
             text = f"{menu_data_str}Showing menu for Post {post_id}\n{link}",
             file = input_media,
             buttons = buttons,
             parse_mode = "html",
         )
-        raise StopPropagation
-
-
