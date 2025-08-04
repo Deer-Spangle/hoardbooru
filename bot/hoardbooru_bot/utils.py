@@ -11,7 +11,7 @@ from telethon.tl.types import InputPhoto, InputDocument, InputMediaPhoto, InputM
 import telethon.utils
 
 if TYPE_CHECKING:
-    from bot.hoardbooru_bot.database import CacheEntry
+    from hoardbooru_bot.database import CacheEntry
 
 SANDBOX_DIR = "sandbox"
 TG_IMG_SEMIPERIMETER_LIMIT = 10_000

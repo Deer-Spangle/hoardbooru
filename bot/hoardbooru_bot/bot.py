@@ -22,10 +22,9 @@ from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_enty_to_inline_media
 from hoardbooru_bot.inline_params import InlineParams
-
-from bot.hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
-from bot.hoardbooru_bot.users import TrustedUser
-from bot.hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
+from hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
+from hoardbooru_bot.users import TrustedUser
+from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 
 logger = logging.getLogger(__name__)
 
