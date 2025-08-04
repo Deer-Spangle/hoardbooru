@@ -814,6 +814,7 @@ class Bot:
         query_str = " ".join(query_tags)
         # Gather posts into which are uploaded where
         all_posts: list[pyszuru.Post] = []
+        posts_to_upload: list[pyszuru.Post] = []
         e6_uploaded: list[pyszuru.Post] = []
         e6_to_upload: list[pyszuru.Post] = []
         e6_not_uploading: list[pyszuru.Post] = []
@@ -822,6 +823,7 @@ class Bot:
         fa_not_uploading: list[pyszuru.Post] = []
         for post in self.hoardbooru.search_post(query_str, page_size=100):
             all_posts.append(post)
+            marked_to_upload = False
             tag_names = [n for t in post.tags for n in t.names]
             if "uploaded_to:e621" in tag_names:
                 e6_uploaded.append(post)
@@ -829,12 +831,16 @@ class Bot:
                 e6_not_uploading.append(post)
             else:
                 e6_to_upload.append(post)
+                posts_to_upload.append(post)
+                marked_to_upload = True
             if f"uploaded_to:{user_infix}_fa" in tag_names:
                 fa_uploaded.append(post)
             elif f"uploaded_to:{user_infix}_not_posting" in tag_names:
                 fa_not_uploading.append(post)
             else:
                 fa_to_upload.append(post)
+                if not marked_to_upload:
+                    posts_to_upload.append(post)
         # Post the message saying the current state of things.
         msg_sections = [f"There are a total of {len(all_posts)} posts matching this search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]
@@ -853,7 +859,7 @@ class Bot:
             "query": query_str,
         }
         menu_data_str = hidden_data(menu_data)
-        earliest_post = min(all_posts, key=lambda post: post.id_)
+        earliest_post = min(posts_to_upload, key=lambda post: post.id_)
         buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
         raise StopPropagation
@@ -886,7 +892,7 @@ class Bot:
             next_post = min(next_posts, key=lambda p: p.id_)
             buttons.append(Button.inline("Next", f"unuploaded:{next_post.id_}"))
         menu_data_str = hidden_data(menu_data)
-        link = f"{self.hoardbooru_url}/posts/{post_id}"
+        link = f"{self.hoardbooru_url}/post/{post_id}"
         await event.edit(
             text = f"{menu_data_str}Showing menu for Post {post_id}\n{link}",
             file = input_media,
