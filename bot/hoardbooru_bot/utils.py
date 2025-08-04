@@ -1,12 +1,17 @@
 import dataclasses
 import uuid
 from contextlib import asynccontextmanager
-from typing import Generator, Optional
+from typing import Generator, Optional, TYPE_CHECKING, Union
 
 import PIL
 import aiofiles.os
 import aiohttp
 from PIL import Image
+from telethon.tl.types import InputPhoto, InputDocument, InputMediaPhoto, InputMediaDocument
+import telethon.utils
+
+if TYPE_CHECKING:
+    from bot.hoardbooru_bot.database import CacheEntry
 
 SANDBOX_DIR = "sandbox"
 TG_IMG_SEMIPERIMETER_LIMIT = 10_000
@@ -102,3 +107,9 @@ async def convert_image(img_path: str) -> Generator[str, None, None]:
             async with temp_sandbox_file(ext="jpg") as output_path:
                 img.save(output_path, 'JPEG', progressive=True, quality=95)
                 yield output_path
+
+
+def cache_enty_to_inline_media(cache_entry: "CacheEntry") -> Union[InputMediaPhoto, InputMediaDocument]:
+    input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
+    input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+    return telethon.utils.get_input_media(input_doc)

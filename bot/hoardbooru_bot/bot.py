@@ -13,15 +13,14 @@ from telethon.errors import MessageNotModifiedError
 from telethon.events import StopPropagation, Raw
 from telethon.tl.custom import InlineResult, InlineBuilder
 from telethon.tl.patched import Message
-from telethon.tl.types import InputPhoto, InputDocument, PeerChannel, DocumentAttributeFilename, UpdateBotInlineSend
-import telethon.utils
+from telethon.tl.types import PeerChannel, DocumentAttributeFilename, UpdateBotInlineSend
 
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
-from hoardbooru_bot.utils import file_ext, temp_sandbox_file
+from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_enty_to_inline_media
 from hoardbooru_bot.inline_params import InlineParams
 
 from bot.hoardbooru_bot.users import TrustedUser
@@ -181,8 +180,7 @@ class Bot:
             cache_entry: CacheEntry,
             inline_params: InlineParams,
     ) -> InlineResult:
-        input_media_cls = InputPhoto if cache_entry.is_photo else InputDocument
-        input_media = input_media_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+        input_media = cache_enty_to_inline_media(cache_entry)
         answer_id = str(cache_entry.post_id)
         # If thumbnail is cached, add a button
         buttons = None
@@ -701,9 +699,7 @@ class Bot:
             raise StopPropagation
         post_id = int(event.id.removesuffix(":spoiler"))
         cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
-        input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
-        input_media = telethon.utils.get_input_media(input_doc)
+        input_media = cache_enty_to_inline_media(cache_entry)
         input_media.spoiler = True
         await self.client.edit_message(
             event.msg_id,
@@ -718,9 +714,7 @@ class Bot:
         logger.warning("Inline answer spoiler button was pressed with data: '%s'", event.data)
         post_id = int(event.data.decode().removeprefix("spoiler:"))
         cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
-        input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
-        input_media = telethon.utils.get_input_media(input_doc)
+        input_media = cache_enty_to_inline_media(cache_entry)
         input_media.spoiler = True
         await self.client.edit_message(
             event.original_update.msg_id,
