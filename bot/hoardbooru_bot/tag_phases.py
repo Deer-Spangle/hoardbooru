@@ -6,8 +6,8 @@ import pyszuru
 from telethon import Button, events
 from telethon.events import StopPropagation
 
-from bot.hoardbooru_bot.users import TrustedUser
-from bot.hoardbooru_bot.utils import tick_if_true
+from hoardbooru_bot.users import TrustedUser
+from hoardbooru_bot.utils import tick_if_true
 
 
 def _list_owners_in_post(current_post: pyszuru.Post) -> list[str]:
