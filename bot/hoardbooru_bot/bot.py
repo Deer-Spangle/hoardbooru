@@ -87,8 +87,9 @@ class Bot:
     async def run(self) -> None:
         start_time.set_to_current_time()
         await self.client.start(bot_token=self.config["telegram"]["bot_token"])
+        self.hoardbooru_url = self.config["hoardbooru"]["url"]
         self.hoardbooru = pyszuru.API(
-            self.config["hoardbooru"]["url"],
+            self.hoardbooru_url,
             username=self.config["hoardbooru"]["username"],
             token=self.config["hoardbooru"]["token"],
         )
@@ -193,7 +194,7 @@ class Bot:
             buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
             answer_id += ":spoiler"
         if inline_params.link:
-            caption = f"http://hoard.lan:8390/post/{cache_entry.post_id}"
+            caption = f"{self.hoardbooru_url}/post/{cache_entry.post_id}"
         # Build the inline answer
         if cache_entry.is_photo:
             return await builder.photo(
@@ -334,13 +335,13 @@ class Bot:
             exact_matches = [x for x in match_results if x.exact]
             if exact_matches:
                 exact_match: pyszuru.Post = exact_matches[0].post
-                post_url = f"http://hoard.lan:8390/post/{exact_match.id_}"
+                post_url = f"{self.hoardbooru_url}/post/{exact_match.id_}"
                 await event.reply(f"This file already exists on hoardbooru.\nLink: {post_url}")
                 await progress_msg.delete()
                 raise StopPropagation
             sorted_matches = sorted(match_results, key=lambda x: x.distance, reverse=True)
             match_lines = "\n".join([
-                f"- http://hoard.lan:8390/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
+                f"- {self.hoardbooru_url}/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
             ])
             await event.reply(
                 f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{match_lines}\n"
@@ -405,7 +406,7 @@ class Bot:
             await self.media_cache.store_in_cache(post, True)
         # Reply with post link
         await event.delete()
-        await original_msg.reply(f"Uploaded to hoardbooru:\nhttp://hoard.lan:8390/post/{post.id_}")
+        await original_msg.reply(f"Uploaded to hoardbooru:\n{self.hoardbooru_url}/post/{post.id_}")
         # Start tagging phase
         tag_menu_data = {
             "post_id": str(post.id_),
@@ -432,7 +433,7 @@ class Bot:
         # Figure out message text
         msg_text = (
             f"{hidden_link}Tagging phase: {phase_cls.name()}"
-            f"\nPost: http://hoard.lan:8390/post/{post.id_}"
+            f"\nPost: {self.hoardbooru_url}/post/{post.id_}"
             f"\n{phase_cls.question()}"
         )
         # Construct buttons
@@ -539,7 +540,7 @@ class Bot:
         # If cancelled, exit early
         if query_data == b"cancel":
             await event_msg.edit(
-                f"Tagging cancelled.\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
+                f"Tagging cancelled.\nPost is {self.hoardbooru_url}/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
         # Mark the current phase complete
@@ -550,7 +551,7 @@ class Bot:
         # If we're done, close the menu
         if query_data == b"done":
             await event_msg.edit(
-                f"Tagging complete!\nPost is http://hoard.lan:8390/post/{menu_data['post_id']}", buttons=None
+                f"Tagging complete!\nPost is {self.hoardbooru_url}/post/{menu_data['post_id']}", buttons=None
             )
             raise StopPropagation
         # Check the post_check method
@@ -681,7 +682,7 @@ class Bot:
         lines = []
         for unfinished_tag, artists in unfinished_artists.items():
             our_characters = unfinished_characters[unfinished_tag]
-            link_url = f"http://hoard.lan:8390/posts/query={unfinished_tag}"
+            link_url = f"{self.hoardbooru_url}/posts/query={unfinished_tag}"
             link_text = unfinished_tag.removeprefix("commission_").lstrip("0")
             link_text += " (" + ", ".join(our_characters) + " by " + ", ".join(artists) + ")"
             lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
