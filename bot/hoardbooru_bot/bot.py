@@ -23,6 +23,7 @@ from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_enty_to_inline_media
 from hoardbooru_bot.inline_params import InlineParams
 
+from bot.hoardbooru_bot.posted_state import PostsByUploadedState
 from bot.hoardbooru_bot.users import TrustedUser
 
 logger = logging.getLogger(__name__)
@@ -814,59 +815,36 @@ class Bot:
         query_str = " ".join(query_tags)
         logger.info(f"Got unuploaded command with query: {query_str}")
         # Gather posts into which are uploaded where
-        all_posts: list[pyszuru.Post] = []
-        posts_to_upload: list[pyszuru.Post] = []
-        e6_uploaded: list[pyszuru.Post] = []
-        e6_to_upload: list[pyszuru.Post] = []
-        e6_not_uploading: list[pyszuru.Post] = []
-        fa_uploaded: list[pyszuru.Post] = []
-        fa_to_upload: list[pyszuru.Post] = []
-        fa_not_uploading: list[pyszuru.Post] = []
-        for post in self.hoardbooru.search_post(query_str, page_size=100):
-            all_posts.append(post)
-            marked_to_upload = False
-            tag_names = [n for t in post.tags for n in t.names]
-            if "uploaded_to:e621" in tag_names:
-                e6_uploaded.append(post)
-            elif "uploaded_to:e621_not_posting" in tag_names:
-                e6_not_uploading.append(post)
-            else:
-                e6_to_upload.append(post)
-                posts_to_upload.append(post)
-                marked_to_upload = True
-            if f"uploaded_to:{user_infix}_fa" in tag_names:
-                fa_uploaded.append(post)
-            elif f"uploaded_to:{user_infix}_not_posting" in tag_names:
-                fa_not_uploading.append(post)
-            else:
-                fa_to_upload.append(post)
-                if not marked_to_upload:
-                    posts_to_upload.append(post)
+        upload_states = PostsByUploadedState.list_by_state(self.hoardbooru, query_str, user_infix)
         # Post the message saying the current state of things.
-        msg_sections = [f"There are a total of {len(all_posts)} posts matching this search (\"{query_str}\")"]
+        msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]
-        e621_section_lines += [f"- {len(e6_uploaded)} Uploaded"]
-        e621_section_lines += [f"- {len(e6_not_uploading)} Not to upload"]
-        e621_section_lines += [f"- {len(e6_to_upload)} Remaining to upload"]
+        e621_section_lines += [f"- {len(upload_states.e6_uploaded)} Uploaded"]
+        e621_section_lines += [f"- {len(upload_states.e6_not_uploading)} Not to upload"]
+        e621_section_lines += [f"- {len(upload_states.e6_to_upload)} Remaining to upload"]
         msg_sections += ["\n".join(e621_section_lines)]
         fa_section_lines = [f"{user_infix.title()} FA upload state:"]
-        fa_section_lines += [f"- {len(fa_uploaded)} Uploaded"]
-        fa_section_lines += [f"- {len(fa_not_uploading)} Not to upload"]
-        fa_section_lines += [f"- {len(fa_to_upload)} Remaining to upload"]
+        fa_section_lines += [f"- {len(upload_states.fa_uploaded)} Uploaded"]
+        fa_section_lines += [f"- {len(upload_states.fa_not_uploading)} Not to upload"]
+        fa_section_lines += [f"- {len(upload_states.fa_to_upload)} Remaining to upload"]
         msg_sections += ["\n".join(fa_section_lines)]
+        msg_sections += [f"In total, {len(upload_states.posts_to_upload)} to upload or categorise"]
         msg_text = "\n\n".join(msg_sections)
         # Construct menu info and buttons
         menu_data = {
             "query": query_str,
         }
         menu_data_str = hidden_data(menu_data)
-        earliest_post = min(posts_to_upload, key=lambda post: post.id_)
+        earliest_post = min(upload_states.posts_to_upload, key=lambda post: post.id_)
         buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
         raise StopPropagation
 
     async def unuploaded_page_callback(self, event: events.CallbackQuery.Event) -> None:
         if not event.data.startswith(b"unuploaded:"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
             return
         event_msg = await event.get_message()
         callback_data = event.data[len(b"unuploaded:"):].decode()
@@ -877,10 +855,10 @@ class Bot:
             raise StopPropagation
         # Handle post ID callbacks
         post_id = int(callback_data)
-        await self.render_unuploaded_page_menu(event_msg, post_id)
+        await self.render_unuploaded_page_menu(event_msg, post_id, user)
         raise StopPropagation
 
-    async def render_unuploaded_page_menu(self, msg: Message, post_id: int) -> None:
+    async def render_unuploaded_page_menu(self, msg: Message, post_id: int, user: TrustedUser) -> None:
         menu_data = parse_hidden_data(msg)
         post = self.hoardbooru.getPost(post_id)
         cache_entry = await self.media_cache.load_cache(post_id, False)
@@ -888,11 +866,9 @@ class Bot:
             cache_entry = await self.media_cache.store_in_cache(post, False)
         input_media = cache_enty_to_inline_media(cache_entry)
         query = menu_data["query"]
-        all_posts = []
-        for post in self.hoardbooru.search_post(query, page_size=100):
-            all_posts.append(post)
-        next_posts = [p for p in all_posts if p.id_ > post_id]
-        prev_posts = [p for p in all_posts if p.id_ < post_id]
+        upload_states = PostsByUploadedState.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
+        next_posts = [p for p in upload_states.posts_to_upload if p.id_ > post_id]
+        prev_posts = [p for p in upload_states.posts_to_upload if p.id_ < post_id]
         buttons = []
         if prev_posts:
             prev_post = max(prev_posts, key=lambda p: p.id_)
@@ -902,9 +878,11 @@ class Bot:
             next_post = min(next_posts, key=lambda p: p.id_)
             buttons.append(Button.inline("Next", f"unuploaded:{next_post.id_}"))
         menu_data_str = hidden_data(menu_data)
-        link = f"{self.hoardbooru_url}/post/{post_id}"
+        total_to_upload = len(upload_states.posts_to_upload)
+        lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
+        lines += [f"{self.hoardbooru_url}/post/{post_id}"]
         await msg.edit(
-            text = f"{menu_data_str}Showing menu for Post {post_id}\n{link}",
+            text = "\n".join(lines),
             file = input_media,
             buttons = buttons,
             parse_mode = "html",
