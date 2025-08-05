@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 from functools import lru_cache
 
 import pyszuru
@@ -109,3 +110,38 @@ class PostsByUploadedState:
             fa_to_upload,
             fa_not_uploading,
         )
+
+
+@dataclasses.dataclass(eq=True, frozen=True)
+class UploadStateCacheKey:
+    query: str
+    user_infix: str
+
+
+@dataclasses.dataclass
+class UploadStateCacheEntry:
+    creation_datetime: datetime.datetime
+    posts: PostsByUploadedState
+
+    def age(self) -> datetime.timedelta:
+        return datetime.datetime.now(datetime.timezone.utc) - self.creation_datetime
+
+
+class UploadStateCache:
+    MAX_AGE = datetime.timedelta(hours=1)
+
+    def __init__(self):
+        self.cache: dict[UploadStateCacheKey, UploadStateCacheEntry] = {}
+
+    def list_by_state(self, api: pyszuru.API, query: str, user_infix: str) -> PostsByUploadedState:
+        key = UploadStateCacheKey(query, user_infix)
+        if key in self.cache:
+            entry = self.cache[key]
+            if entry.age() < self.MAX_AGE:
+                return entry.posts
+        entry = UploadStateCacheEntry(
+            datetime.datetime.now(datetime.timezone.utc),
+            PostsByUploadedState.list_by_state(api, query, user_infix),
+        )
+        self.cache[key] = entry
+        return entry.posts

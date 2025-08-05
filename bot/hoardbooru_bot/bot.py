@@ -26,6 +26,8 @@ from hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 
+from bot.hoardbooru_bot.posted_state import UploadStateCache
+
 logger = logging.getLogger(__name__)
 
 PROM_PORT = 7266
@@ -83,6 +85,7 @@ class Bot:
         self.media_cache = TelegramMediaCache(self.database, self.client, cache_channel)
         self.hoardbooru: Optional[pyszuru.API] = None
         self.popularity_cache: Optional[PopularityCache] = None
+        self.upload_state_cache = UploadStateCache()
 
     async def run(self) -> None:
         start_time.set_to_current_time()
@@ -816,7 +819,7 @@ class Bot:
         query_str = " ".join(query_tags)
         logger.info(f"Got unuploaded command with query: {query_str}")
         # Gather posts into which are uploaded where
-        upload_states = PostsByUploadedState.list_by_state(self.hoardbooru, query_str, user_infix)
+        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix)
         # Post the message saying the current state of things.
         msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]
@@ -915,7 +918,7 @@ class Bot:
         )]]
         # Construct pagination buttons
         query = menu_data["query"]
-        upload_states = PostsByUploadedState.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
+        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
         next_posts = [p for p in upload_states.posts_to_upload if p.id_ > post_id]
         prev_posts = [p for p in upload_states.posts_to_upload if p.id_ < post_id]
         pagination_button_row = []
