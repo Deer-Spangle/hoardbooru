@@ -25,8 +25,7 @@ from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
-
-from bot.hoardbooru_bot.posted_state import UploadStateCache
+from hoardbooru_bot.posted_state import UploadStateCache
 
 logger = logging.getLogger(__name__)
 
