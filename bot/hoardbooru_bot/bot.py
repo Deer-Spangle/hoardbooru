@@ -818,7 +818,7 @@ class Bot:
         query_str = " ".join(query_tags)
         logger.info(f"Got unuploaded command with query: {query_str}")
         # Gather posts into which are uploaded where
-        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix)
+        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix, refresh=True)
         # Post the message saying the current state of things.
         msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]

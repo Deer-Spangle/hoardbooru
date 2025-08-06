@@ -133,9 +133,15 @@ class UploadStateCache:
     def __init__(self):
         self.cache: dict[UploadStateCacheKey, UploadStateCacheEntry] = {}
 
-    def list_by_state(self, api: pyszuru.API, query: str, user_infix: str) -> PostsByUploadedState:
+    def list_by_state(
+            self,
+            api: pyszuru.API,
+            query: str,
+            user_infix: str,
+            refresh: bool = False
+    ) -> PostsByUploadedState:
         key = UploadStateCacheKey(query, user_infix)
-        if key in self.cache:
+        if key in self.cache and not refresh:
             entry = self.cache[key]
             if entry.age() < self.MAX_AGE:
                 return entry.posts
