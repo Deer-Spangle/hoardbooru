@@ -160,6 +160,9 @@ class Bot:
                 return user
         return None
 
+    def hoardbooru_post_url(self, post_id: int) -> str:
+        return f"{self.hoardbooru_url}/post/{post_id}"
+
     # noinspection PyMethodMayBeStatic
     async def boop(self, event: events.NewMessage.Event) -> None:
         await event.reply("Boop!")
@@ -197,7 +200,7 @@ class Bot:
             buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
             answer_id += ":spoiler"
         if inline_params.link:
-            caption = f"{self.hoardbooru_url}/post/{cache_entry.post_id}"
+            caption = self.hoardbooru_post_url(cache_entry.post_id)
         # Build the inline answer
         if cache_entry.is_photo:
             return await builder.photo(
@@ -338,13 +341,13 @@ class Bot:
             exact_matches = [x for x in match_results if x.exact]
             if exact_matches:
                 exact_match: pyszuru.Post = exact_matches[0].post
-                post_url = f"{self.hoardbooru_url}/post/{exact_match.id_}"
+                post_url = self.hoardbooru_post_url(exact_match.id_)
                 await event.reply(f"This file already exists on hoardbooru.\nLink: {post_url}")
                 await progress_msg.delete()
                 raise StopPropagation
             sorted_matches = sorted(match_results, key=lambda x: x.distance, reverse=True)
             match_lines = "\n".join([
-                f"- {self.hoardbooru_url}/post/{m.post.id_} ({100*m.distance:.2f}%)" for m in sorted_matches
+                f"- {self.hoardbooru_post_url(m.post.id_)} ({100*m.distance:.2f}%)" for m in sorted_matches
             ])
             await event.reply(
                 f"{menu_data}This file potentially matches {len(sorted_matches)} posts!\n{match_lines}\n"
@@ -409,7 +412,7 @@ class Bot:
             await self.media_cache.store_in_cache(post, True)
         # Reply with post link
         await event.delete()
-        await original_msg.reply(f"Uploaded to hoardbooru:\n{self.hoardbooru_url}/post/{post.id_}")
+        await original_msg.reply(f"Uploaded to hoardbooru:\n{self.hoardbooru_post_url(post.id_)}")
         # Start tagging phase
         tag_menu_data = {
             "post_id": str(post.id_),
@@ -436,7 +439,7 @@ class Bot:
         # Figure out message text
         msg_text = (
             f"{hidden_link}Tagging phase: {phase_cls.name()}"
-            f"\nPost: {self.hoardbooru_url}/post/{post.id_}"
+            f"\nPost: {self.hoardbooru_post_url(post.id_)}"
             f"\n{phase_cls.question()}"
         )
         # Construct buttons
@@ -543,7 +546,7 @@ class Bot:
         # If cancelled, exit early
         if query_data == b"cancel":
             await event_msg.edit(
-                f"Tagging cancelled.\nPost is {self.hoardbooru_url}/post/{menu_data['post_id']}", buttons=None
+                f"Tagging cancelled.\nPost is {self.hoardbooru_post_url(menu_data['post_id'])}", buttons=None
             )
             raise StopPropagation
         # Mark the current phase complete
@@ -554,7 +557,7 @@ class Bot:
         # If we're done, close the menu
         if query_data == b"done":
             await event_msg.edit(
-                f"Tagging complete!\nPost is {self.hoardbooru_url}/post/{menu_data['post_id']}", buttons=None
+                f"Tagging complete!\nPost is {self.hoardbooru_post_url(menu_data['post_id'])}", buttons=None
             )
             raise StopPropagation
         # Check the post_check method
@@ -932,7 +935,7 @@ class Bot:
         menu_data_str = hidden_data(menu_data)
         total_to_upload = len(upload_states.posts_to_upload)
         lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
-        lines += [f"{self.hoardbooru_url}/post/{post_id}"]
+        lines += [f"{self.hoardbooru_post_url(post_id)}"]
         lines += [f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}"]
         lines += [f"FA State: {bold_if_true(post_status.fa_state, post_status.fa_to_upload)}"]
         await msg.edit(
