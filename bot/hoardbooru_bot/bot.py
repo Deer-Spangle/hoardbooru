@@ -857,7 +857,10 @@ class Bot:
         logger.info("Unuploaded menu callback data: %s", callback_data)
         # Handle cancel callbacks
         if callback_data == "cancel":
-            await event_msg.edit("Unuploaded media handling cancelled.", buttons=None)
+            menu_data = parse_hidden_data(event_msg)
+            post_id = int(menu_data["post_id"])
+            post_url = self.hoardbooru_post_url(post_id)
+            await event_msg.edit(f"Unuploaded media handling cancelled on Post {post_id}\n{post_url}", buttons=None)
             raise StopPropagation
         # Handle post ID callbacks
         post_id = int(callback_data)
