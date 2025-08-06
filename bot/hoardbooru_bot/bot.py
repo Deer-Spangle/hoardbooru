@@ -879,8 +879,10 @@ class Bot:
         # Find the right post
         event_msg = await event.get_message()
         menu_data = parse_hidden_data(event_msg)
+        query_str = menu_data["query"]
+        post_id = int(menu_data["post_id"])
         # Fetch the post
-        post = self.hoardbooru.getPost(int(menu_data["post_id"]))
+        post = self.hoardbooru.getPost(post_id)
         # Update the tags
         tag_name = f"uploaded_to:{callback_data}"
         htag = self.hoardbooru.getTag(tag_name)
@@ -889,6 +891,9 @@ class Bot:
         else:
             post.tags.append(htag)
         post.push()
+        # Update in posts cache
+        states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user.upload_tag_infix)
+        states.update_post(post)
         # Update the menu
         await self.render_unuploaded_page_menu(event_msg, post.id_, user)
         raise StopPropagation
@@ -924,8 +929,9 @@ class Bot:
         # Construct pagination buttons
         query = menu_data["query"]
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
-        next_posts = [p for p in upload_states.posts_to_upload if p.id_ > post_id]
-        prev_posts = [p for p in upload_states.posts_to_upload if p.id_ < post_id]
+        posts_to_upload = upload_states.posts_to_upload
+        next_posts = [p for p in posts_to_upload if p.id_ > post_id]
+        prev_posts = [p for p in posts_to_upload if p.id_ < post_id]
         pagination_button_row = []
         if prev_posts:
             prev_post = max(prev_posts, key=lambda p: p.id_)
@@ -936,7 +942,7 @@ class Bot:
             pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
         # Construct message text
         menu_data_str = hidden_data(menu_data)
-        total_to_upload = len(upload_states.posts_to_upload)
+        total_to_upload = len(posts_to_upload)
         lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
         lines += [f"{self.hoardbooru_post_url(post_id)}"]
         lines += [f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}"]

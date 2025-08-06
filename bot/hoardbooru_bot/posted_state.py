@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from functools import lru_cache
+from functools import lru_cache, cached_property
 
 import pyszuru
 
@@ -64,43 +64,69 @@ class PostUploadState:
 
 @dataclasses.dataclass
 class PostsByUploadedState:
-    all_posts: list[pyszuru.Post]
+    all_post_states: list[PostUploadState]
     user_infix: str
 
-    @property
+    @cached_property
+    def all_posts(self) -> list[pyszuru.Post]:
+        return [p.post for p in self.all_post_states]
+
+    @cached_property
     def e6_uploaded(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_uploaded]
+        return [p.post for p in self.all_post_states if p.e6_uploaded]
 
-    @property
+    @cached_property
     def e6_to_upload(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_to_upload]
+        return [p.post for p in self.all_post_states if p.e6_to_upload]
 
-    @property
+    @cached_property
     def e6_not_uploading(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_not_uploading]
+        return [p.post for p in self.all_post_states if p.e6_not_uploading]
 
-    @property
+    @cached_property
     def fa_uploaded(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_uploaded]
+        return [p.post for p in self.all_post_states if p.fa_uploaded]
 
-    @property
+    @cached_property
     def fa_to_upload(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_to_upload]
+        return [p.post for p in self.all_post_states if p.fa_to_upload]
 
-    @property
+    @cached_property
     def fa_not_uploading(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_not_uploading]
+        return [p.post for p in self.all_post_states if p.fa_not_uploading]
 
-    @property
+    @cached_property
     def posts_to_upload(self) -> list[pyszuru.Post]:
-        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).to_upload]
+        return [p.post for p in self.all_post_states if p.to_upload]
+
+    def clear_cache_property(self, prop: str) -> None:
+        if prop in self.__dict__:
+            del self.__dict__[prop]
+
+    def update_post(self, post: pyszuru.Post) -> None:
+        self.clear_cache_property("all_posts")
+        self.clear_cache_property("e6_uploaded")
+        self.clear_cache_property("e6_to_upload")
+        self.clear_cache_property("e6_not_uploading")
+        self.clear_cache_property("fa_uploaded")
+        self.clear_cache_property("fa_to_upload")
+        self.clear_cache_property("fa_not_uploading")
+        self.clear_cache_property("posts_to_upload")
+        user_infix = None
+        for p in self.all_post_states[:]:
+            user_infix = p.user_infix
+            if p.post.id_ == post.id_:
+                self.all_post_states.remove(p)
+        if user_infix is None:
+            raise ValueError("Posts did not have user infix")
+        self.all_post_states.append(PostUploadState(post, user_infix))
 
     @classmethod
     def list_by_state(cls, api: pyszuru.API, query: str, user_infix: str) -> "PostsByUploadedState":
-        all_posts: list[pyszuru.Post] = []
+        all_post_states: list[PostUploadState] = []
         for post in api.search_post(query, page_size=100):
-            all_posts.append(post)
-        return cls(all_posts, user_infix)
+            all_post_states.append(PostUploadState(post, user_infix))
+        return cls(all_post_states, user_infix)
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
