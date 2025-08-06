@@ -708,7 +708,7 @@ class Bot:
             raise StopPropagation
         post_id = int(event.id.removesuffix(":spoiler"))
         cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_media = cache_enty_to_inline_media(cache_entry)
+        input_media = cache_entry_to_inline_media(cache_entry)
         input_media.spoiler = True
         await self.client.edit_message(
             event.msg_id,
@@ -723,7 +723,7 @@ class Bot:
         logger.warning("Inline answer spoiler button was pressed with data: '%s'", event.data)
         post_id = int(event.data.decode().removeprefix("spoiler:"))
         cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_media = cache_enty_to_inline_media(cache_entry)
+        input_media = cache_entry_to_inline_media(cache_entry)
         input_media.spoiler = True
         await self.client.edit_message(
             event.original_update.msg_id,
@@ -908,7 +908,7 @@ class Bot:
         cache_entry = await self.media_cache.load_cache(post_id, False)
         if cache_entry is None:
             cache_entry = await self.media_cache.store_in_cache(post, False)
-        input_media = cache_enty_to_inline_media(cache_entry)
+        input_media = cache_entry_to_inline_media(cache_entry)
         # Construct the state buttons
         state_buttons = []
         state_buttons += [[Button.inline(
