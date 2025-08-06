@@ -109,9 +109,13 @@ async def convert_image(img_path: str) -> Generator[str, None, None]:
                 yield output_path
 
 
-def cache_enty_to_inline_media(cache_entry: "CacheEntry") -> Union[InputMediaPhoto, InputMediaDocument]:
+def cache_entry_to_input_doc(cache_entry: "CacheEntry") -> Union[InputPhoto, InputDocument]:
     input_doc_cls = InputPhoto if cache_entry.is_photo else InputDocument
-    input_doc = input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+    return input_doc_cls(cache_entry.media_id, cache_entry.access_hash, b"")
+
+
+def cache_entry_to_input_media_doc(cache_entry: "CacheEntry") -> Union[InputMediaPhoto, InputMediaDocument]:
+    input_doc = cache_entry_to_input_doc(cache_entry)
     return telethon.utils.get_input_media(input_doc)
 
 

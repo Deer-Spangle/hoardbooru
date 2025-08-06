@@ -20,12 +20,13 @@ from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
-from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_enty_to_inline_media
+from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc
 from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
+
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ class Bot:
             cache_entry: CacheEntry,
             inline_params: InlineParams,
     ) -> InlineResult:
-        input_media = cache_enty_to_inline_media(cache_entry)
+        input_media = cache_entry_to_input_doc(cache_entry)
         answer_id = str(cache_entry.post_id)
         # If thumbnail is cached, add a button
         buttons = None
