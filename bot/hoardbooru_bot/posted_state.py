@@ -65,51 +65,42 @@ class PostUploadState:
 @dataclasses.dataclass
 class PostsByUploadedState:
     all_posts: list[pyszuru.Post]
-    posts_to_upload: list[pyszuru.Post]
-    e6_uploaded: list[pyszuru.Post]
-    e6_to_upload: list[pyszuru.Post]
-    e6_not_uploading: list[pyszuru.Post]
-    fa_uploaded: list[pyszuru.Post]
-    fa_to_upload: list[pyszuru.Post]
-    fa_not_uploading: list[pyszuru.Post]
+    user_infix: str
+
+    @property
+    def e6_uploaded(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_uploaded]
+
+    @property
+    def e6_to_upload(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_to_upload]
+
+    @property
+    def e6_not_uploading(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).e6_not_uploading]
+
+    @property
+    def fa_uploaded(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_uploaded]
+
+    @property
+    def fa_to_upload(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_to_upload]
+
+    @property
+    def fa_not_uploading(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).fa_not_uploading]
+
+    @property
+    def posts_to_upload(self) -> list[pyszuru.Post]:
+        return [p for p in self.all_posts if PostUploadState(p, self.user_infix).to_upload]
 
     @classmethod
     def list_by_state(cls, api: pyszuru.API, query: str, user_infix: str) -> "PostsByUploadedState":
         all_posts: list[pyszuru.Post] = []
-        posts_to_upload: list[pyszuru.Post] = []
-        e6_uploaded: list[pyszuru.Post] = []
-        e6_to_upload: list[pyszuru.Post] = []
-        e6_not_uploading: list[pyszuru.Post] = []
-        fa_uploaded: list[pyszuru.Post] = []
-        fa_to_upload: list[pyszuru.Post] = []
-        fa_not_uploading: list[pyszuru.Post] = []
         for post in api.search_post(query, page_size=100):
-            post_state = PostUploadState(post, user_infix)
             all_posts.append(post)
-            if post_state.e6_uploaded:
-                e6_uploaded.append(post)
-            if post_state.e6_not_uploading:
-                e6_not_uploading.append(post)
-            if post_state.e6_to_upload:
-                e6_to_upload.append(post)
-            if post_state.fa_uploaded:
-                fa_uploaded.append(post)
-            if post_state.fa_not_uploading:
-                fa_not_uploading.append(post)
-            if post_state.fa_to_upload:
-                fa_to_upload.append(post)
-            if post_state.to_upload:
-                posts_to_upload.append(post)
-        return cls(
-            all_posts,
-            posts_to_upload,
-            e6_uploaded,
-            e6_to_upload,
-            e6_not_uploading,
-            fa_uploaded,
-            fa_to_upload,
-            fa_not_uploading,
-        )
+        return cls(all_posts, user_infix)
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
