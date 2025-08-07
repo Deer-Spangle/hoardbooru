@@ -990,7 +990,7 @@ class Bot:
         else:
             proposed_buttons += [[Button.inline("✏️ Set tags", "upload_propose:tags")]]
         if upload_links := gallery_upload_data.upload_links:
-            proposed_lines += ["<b>Upload links:</b>", *[html.escape(link.to_string()) for link in upload_links]]
+            proposed_lines += ["<b>Upload links:</b>", *["- " + html.escape(link.to_string()) for link in upload_links]]
         proposed_buttons += [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
         # Construct message text
         lines = [title_line, url_line, *state_lines, *proposed_lines]
@@ -1025,7 +1025,7 @@ class Bot:
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Get current field value
-        current_value: Optional[str] = None
+        reply_action: Optional[str] = None
         if field == "title":
             current_value = gallery_upload_data.proposed_title
         elif field == "description":
@@ -1039,15 +1039,17 @@ class Bot:
             for n, upload_links in enumerate(upload_links, start = 1):
                 link_lines += [f"{n}: {html.escape(upload_links.to_string())}"]
             current_value = "\n".join(link_lines)
+            reply_action = "add a new upload link"
         else:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
+        reply_action = reply_action or f"set a new {field}"
         # Build the message
         menu_data_str = hidden_data(menu_data)
         lines = []
         lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
         lines += [f"<b>Current {field}:</b>", html.escape(str(current_value))]
-        lines += ["<b>---</b>", f"Reply to this message to set a new {field}"]
+        lines += ["<b>---</b>", f"Reply to this message to {reply_action}"]
         await msg.edit(
             text = "\n".join(lines),
             buttons = [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
