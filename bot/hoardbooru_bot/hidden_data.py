@@ -1,8 +1,8 @@
 import urllib.parse
-from typing import Optional
+from typing import Optional, Union
 
 from telethon import events
-from telethon.tl.types import MessageEntityTextUrl
+from telethon.tl.types import MessageEntityTextUrl, Message
 
 HIDDEN_DOMAIN = "example.com"
 
@@ -14,7 +14,7 @@ def hidden_data(data: dict[str, str]) -> str:
     return link
 
 
-def parse_hidden_data(evt: events.NewMessage.Event) -> Optional[dict[str, str]]:
+def parse_hidden_data(evt: Union[events.NewMessage.Event, Message]) -> Optional[dict[str, str]]:
     for url_entity, inner_text in evt.get_entities_text(MessageEntityTextUrl):
         url = url_entity.url
         url_parse = urllib.parse.urlparse(url)
