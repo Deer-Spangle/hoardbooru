@@ -90,7 +90,7 @@ class TelegramPostDocument(YamlPostDocument):
 
 class UploadDataPostDocument(YamlPostDocument):
     """
-    data_type: upload links
+    data_type: upload_data
     proposed_data:
         title: This pic is wooo
         description: AAaaaa
