@@ -12,7 +12,7 @@ import pyszuru
 from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
 from telethon.errors import MessageNotModifiedError
-from telethon.events import StopPropagation, Raw
+from telethon.events import StopPropagation
 from telethon.tl.custom import InlineResult, InlineBuilder
 from telethon.tl.patched import Message
 from telethon.tl.types import PeerChannel, DocumentAttributeFilename, UpdateBotInlineSend
@@ -28,7 +28,8 @@ from hoardbooru_bot.posted_state import PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
-from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument, UploadLink
+from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument, UploadLink, \
+    UploadLinkUploaderType
 from utils.notion_descriptions.post_descriptions import set_post_description
 
 logger = logging.getLogger(__name__)
@@ -161,6 +162,7 @@ class Bot:
         self.client.add_event_handler(self.unuploaded_page_callback, events.CallbackQuery(pattern="unuploaded:"))
         self.client.add_event_handler(self.upload_tag_callback, events.CallbackQuery(pattern="upload_tag:"))
         self.client.add_event_handler(self.upload_propose_callback, events.CallbackQuery(pattern="upload_propose:"))
+        self.client.add_event_handler(self.upload_link_callback, events.CallbackQuery(pattern="upload_link:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -1026,6 +1028,7 @@ class Bot:
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Get current field value
         reply_action: Optional[str] = None
+        extra_buttons = []
         if field == "title":
             current_value = gallery_upload_data.proposed_title
         elif field == "description":
@@ -1036,10 +1039,15 @@ class Bot:
         elif field == "links":
             upload_links = gallery_upload_data.upload_links
             link_lines = []
-            for n, upload_links in enumerate(upload_links, start = 1):
-                link_lines += [f"{n}: {html.escape(upload_links.to_string())}"]
+            for n, upload_link in enumerate(upload_links, start = 1):
+                link_lines += [f"{n}: {html.escape(upload_link.to_string())}"]
             current_value = "\n".join(link_lines)
-            reply_action = "add a new upload link"
+            reply_action = "add a new upload link, or use the menu to modify a link"
+            link_buttons = [
+                Button.inline(f"{n}", f"upload_link:{n}")
+                for n in range(1, len(upload_links) + 1)
+            ]
+            extra_buttons = [link_buttons[n:n+4] for n in range(0, len(link_buttons), 4)]
         else:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         reply_action = reply_action or f"set a new {field}"
@@ -1052,7 +1060,7 @@ class Bot:
         lines += ["<b>---</b>", f"Reply to this message to {reply_action}"]
         await msg.edit(
             text = "\n".join(lines),
-            buttons = [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
+            buttons = extra_buttons + [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
             parse_mode = "html",
         )
         raise StopPropagation
@@ -1099,3 +1107,46 @@ class Bot:
         await event.reply(resp_text, link_preview=False)
         await self.render_upload_propose_menu(menu_msg, proposed_field)
         raise StopPropagation
+
+    async def upload_link_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"upload_link:"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Log callback data
+        callback_data = event.data[len(b"upload_link:"):].decode()
+        logger.info("Upload link menu callback data: %s", callback_data)
+        # Find the right post
+        event_msg = await event.get_message()
+        await self.render_upload_link_menu(event_msg, callback_data)
+        raise StopPropagation
+
+    async def render_upload_link_menu(self, msg: Message, link_num: str) -> None:
+        menu_data = parse_hidden_data(msg)
+        post_id = int(menu_data["post_id"])
+        menu_data["upload_link_num"] = link_num
+        # Fetch the post
+        post = self.hoardbooru.getPost(post_id)
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        # Get the right upload link
+        upload_link = gallery_upload_data.upload_links[int(link_num) - 1]
+        menu_data_str = hidden_data(menu_data)
+        lines = []
+        lines += [f"{menu_data_str}Editing upload link"]
+        lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
+        lines += ["Modifying upload link:"]
+        lines += [html.escape(upload_link.to_string())]
+        lines += ["Use menu to set upload link type, or delete link, and reply to this message to set the upload link info"]
+        buttons = []
+        for link_type in UploadLinkUploaderType:
+            buttons += [[Button.inline(f"Set type: {link_type.name}", f"upload_link_type:{link_type.value}")]]
+        buttons += [[Button.inline("❌ Delete link", f"upload_link_delete")]]
+        buttons += [[Button.inline("⏎ Return to upload links", "upload_propose:links")]]
+        await msg.edit(
+            text = "\n".join(lines),
+            buttons = buttons,
+            parse_mode = "html",
+        )
+
