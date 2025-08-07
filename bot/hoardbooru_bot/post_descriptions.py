@@ -19,8 +19,9 @@ class PostDocument(ABC):
 
     @classmethod
     def parse_text(cls, raw_text: str) -> "PostDocument":
+        yaml_text = raw_text.removeprefix("```").removesuffix("```")
         try:
-            yaml_doc = yaml.safe_load(raw_text)
+            yaml_doc = yaml.safe_load(yaml_text)
         except yaml.YAMLError:
             return RawTextPostDocument(raw_text)
         data_type = yaml_doc["data_type"]
@@ -280,13 +281,15 @@ class PostDescription:
         yaml_doc_strings = []
         for document in self.documents:
             if isinstance(document, YamlPostDocument):
-                yaml_doc_strings.append("---\n" + document.to_string() + "\n---")
+                yaml_doc_strings.append("---\n```\n" + document.to_string() + "\n```\n---")
             else:
                 raw_doc_strings.append(document.to_string())
         # Ensure raw text documents go first, then YAML
         doc_strings = raw_doc_strings + yaml_doc_strings
         output = "\n".join(doc_strings)
         # Remove any empty documents
+        while "```\n```\n" in output:
+            output = output.replace("```\n```\n", "")
         while "---\n---" in output:
             output = output.replace("---\n---", "---")
         # Don't return just a document separator
