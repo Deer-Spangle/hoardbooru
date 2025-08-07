@@ -29,8 +29,7 @@ from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
 from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument, UploadLink, \
-    UploadLinkUploaderType
-from utils.notion_descriptions.post_descriptions import set_post_description
+    UploadLinkUploaderType, set_post_description
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +73,10 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 async def filter_reply_to_upload_propose_menu(evt: events.NewMessage.Event) -> bool:
     return await filter_reply_to_menu_with_fields(evt, ["proposed_field", "query", "post_id"])
+
+
+async def filter_reply_to_upload_link_menu(evt: events.NewMessage.Event) -> bool:
+    return await filter_reply_to_menu_with_fields(evt, ["post_id", "upload_link_num"])
 
 
 class Bot:
@@ -152,6 +155,14 @@ class Bot:
                 from_users=self.trusted_user_ids(),
             )
         )
+        # self.client.add_event_handler(
+        #     self.upload_link_info_with_reply,
+        #     events.NewMessage(
+        #         func=lambda e: filter_reply_to_upload_link_menu(e),
+        #         incoming=True,
+        #         from_users=self.trusted_user_ids(),
+        #     )
+        # )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
@@ -163,6 +174,8 @@ class Bot:
         self.client.add_event_handler(self.upload_tag_callback, events.CallbackQuery(pattern="upload_tag:"))
         self.client.add_event_handler(self.upload_propose_callback, events.CallbackQuery(pattern="upload_propose:"))
         self.client.add_event_handler(self.upload_link_callback, events.CallbackQuery(pattern="upload_link:"))
+        self.client.add_event_handler(self.upload_link_type_callback, events.CallbackQuery(pattern="upload_link_type:"))
+        # self.client.add_event_handler(self.upload_link_delete_callback, events.CallbackQuery(pattern="upload_link_delete:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -1117,7 +1130,7 @@ class Bot:
         # Log callback data
         callback_data = event.data[len(b"upload_link:"):].decode()
         logger.info("Upload link menu callback data: %s", callback_data)
-        # Find the right post
+        # Render the menu
         event_msg = await event.get_message()
         await self.render_upload_link_menu(event_msg, callback_data)
         raise StopPropagation
@@ -1149,4 +1162,34 @@ class Bot:
             buttons = buttons,
             parse_mode = "html",
         )
+
+    async def upload_link_type_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"upload_link_type:"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Log callback data
+        callback_data = event.data[len(b"upload_link_type:"):].decode()
+        logger.info("Upload link type menu callback data: %s", callback_data)
+        # Find the right post
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        post_id = int(menu_data["post_id"])
+        link_num = menu_data["upload_link_num"]
+        link_idx = int(link_num) - 1
+        # Fetch the post
+        post = self.hoardbooru.getPost(post_id)
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        # Get the right upload link
+        upload_link = gallery_upload_data.upload_links[link_idx]
+        # Set the type on the upload link
+        upload_link_type = UploadLinkUploaderType(callback_data)
+        upload_link.uploader_type = upload_link_type
+        gallery_upload_data.set_upload_link(link_idx, upload_link)
+        set_post_description(post, post_description)
+        # Render the menu
+        await self.render_upload_link_menu(event_msg, link_num)
+        raise StopPropagation
 
