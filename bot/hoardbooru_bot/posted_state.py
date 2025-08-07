@@ -1,8 +1,11 @@
 import dataclasses
 import datetime
+import logging
 from functools import lru_cache, cached_property
 
 import pyszuru
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -157,6 +160,7 @@ class UploadStateCache:
             user_infix: str,
             refresh: bool = False
     ) -> PostsByUploadedState:
+        logger.info("Parsing list of unuploaded posts by upload state")
         key = UploadStateCacheKey(query, user_infix)
         if key in self.cache and not refresh:
             entry = self.cache[key]

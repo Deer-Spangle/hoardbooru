@@ -79,11 +79,11 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 
 async def filter_reply_to_upload_propose_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["query", "post_id", "proposed_field"], precise=True)
+    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "post_id", "proposed_field"], precise=True)
 
 
 async def filter_reply_to_upload_link_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["query", "post_id", "proposed_field", "upload_link_num"])
+    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "post_id", "proposed_field", "upload_link_num"])
 
 
 class Bot:
@@ -859,7 +859,10 @@ class Bot:
         query_tags = event.message.text.removeprefix("/unuploaded").strip().split()
         if "final" not in query_tags:
             query_tags.append("final")
-        if user.owner_tag not in query_tags:
+        for trusted_user in self.trusted_users:
+            if trusted_user.owner_tag in query_tags:
+                user_infix = trusted_user.upload_tag_infix
+        if user_infix == user.upload_tag_infix and user.owner_tag not in query_tags:
             query_tags.append(user.owner_tag)
         query_str = " ".join(query_tags)
         logger.info(f"Got unuploaded command with query: {query_str}")
@@ -882,8 +885,9 @@ class Bot:
         # Construct menu info and buttons
         menu_data = {
             "query": query_str,
+            "user_infix": user_infix,
         }
-        menu_data_str = hidden_data(menu_data, ["query"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix"])
         earliest_post = min(upload_states.posts_to_upload, key=lambda post: post.id_)
         buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
@@ -923,6 +927,7 @@ class Bot:
         event_msg = await event.get_message()
         menu_data = parse_hidden_data(event_msg)
         query_str = menu_data["query"]
+        user_infix = menu_data["user_infix"]
         post_id = int(menu_data["post_id"])
         # Fetch the post
         post = self.hoardbooru.getPost(post_id)
@@ -935,7 +940,7 @@ class Bot:
             post.tags.append(htag)
         post.push()
         # Update in posts cache
-        states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user.upload_tag_infix)
+        states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix)
         states.update_post(post)
         # Update the menu
         await self.render_unuploaded_page_menu(event_msg, post.id_, user)
@@ -952,7 +957,8 @@ class Bot:
             cache_entry = await self.media_cache.store_in_cache(post, False)
         input_media = cache_entry_to_input_media_doc(cache_entry)
         # Construct the upload state buttons and text
-        post_status = PostUploadState(post, user.upload_tag_infix)
+        user_infix = menu_data["user_infix"]
+        post_status = PostUploadState(post, user_infix)
         state_buttons = []
         state_buttons += [[Button.inline(
             f"{tick_cross_if_true(post_status.e6_uploaded)} e621: Uploaded",
@@ -964,11 +970,11 @@ class Bot:
         )]]
         state_buttons += [[Button.inline(
             f"{tick_cross_if_true(post_status.fa_uploaded)} FA: Uploaded",
-            f"upload_tag:{user.upload_tag_infix}_fa",
+            f"upload_tag:{user_infix}_fa",
         )]]
         state_buttons += [[Button.inline(
             f"{tick_cross_if_true(post_status.fa_not_uploading)} FA: Not uploading",
-            f"upload_tag:{user.upload_tag_infix}_not_posting",
+            f"upload_tag:{user_infix}_not_posting",
         )]]
         state_lines = [
             f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}",
@@ -976,7 +982,8 @@ class Bot:
         ]
         # Construct pagination buttons and lines
         query = menu_data["query"]
-        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
+        user_infix = menu_data["user_infix"]
+        upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user_infix)
         posts_to_upload = upload_states.posts_to_upload
         next_posts = [p for p in posts_to_upload if p.id_ > post_id]
         prev_posts = [p for p in posts_to_upload if p.id_ < post_id]
@@ -989,7 +996,7 @@ class Bot:
             next_post = min(next_posts, key=lambda p: p.id_)
             pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
         total_to_upload = len(posts_to_upload)
-        menu_data_str = hidden_data(menu_data, ["query", "post_id"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id"])
         title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
         # Construct proposed data buttons and lines
         post_description = get_post_description(post)
@@ -1072,7 +1079,7 @@ class Bot:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         reply_action = reply_action or f"set a new {field}"
         # Build the message
-        menu_data_str = hidden_data(menu_data, ["query", "post_id", "proposed_field"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id", "proposed_field"])
         lines = []
         lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
@@ -1152,7 +1159,7 @@ class Bot:
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Get the right upload link
         upload_link = gallery_upload_data.upload_links[int(link_num) - 1]
-        menu_data_str = hidden_data(menu_data, ["query", "post_id", "proposed_field", "upload_link_num"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id", "proposed_field", "upload_link_num"])
         lines = []
         lines += [f"{menu_data_str}Editing upload link"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
