@@ -175,7 +175,7 @@ class Bot:
         self.client.add_event_handler(self.upload_propose_callback, events.CallbackQuery(pattern="upload_propose:"))
         self.client.add_event_handler(self.upload_link_callback, events.CallbackQuery(pattern="upload_link:"))
         self.client.add_event_handler(self.upload_link_type_callback, events.CallbackQuery(pattern="upload_link_type:"))
-        # self.client.add_event_handler(self.upload_link_delete_callback, events.CallbackQuery(pattern="upload_link_delete:"))
+        self.client.add_event_handler(self.upload_link_delete_callback, events.CallbackQuery(pattern="upload_link_delete"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -1155,7 +1155,7 @@ class Bot:
         buttons = []
         for link_type in UploadLinkUploaderType:
             buttons += [[Button.inline(f"Set type: {link_type.name}", f"upload_link_type:{link_type.value}")]]
-        buttons += [[Button.inline("❌ Delete link", f"upload_link_delete")]]
+        buttons += [[Button.inline("❌ Delete link", "upload_link_delete")]]
         buttons += [[Button.inline("⏎ Return to upload links", "upload_propose:links")]]
         await msg.edit(
             text = "\n".join(lines),
@@ -1191,5 +1191,32 @@ class Bot:
         set_post_description(post, post_description)
         # Render the menu
         await self.render_upload_link_menu(event_msg, link_num)
+        raise StopPropagation
+
+    async def upload_link_delete_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"upload_link_delete"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Log callback data
+        logger.info("Upload link delete menu callback")
+        # Find the right post
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        post_id = int(menu_data["post_id"])
+        link_num = menu_data["upload_link_num"]
+        link_idx = int(link_num) - 1
+        # Fetch the post
+        post = self.hoardbooru.getPost(post_id)
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        # Get the right upload link
+        upload_link = gallery_upload_data.upload_links[link_idx]
+        # Delete the upload link
+        gallery_upload_data.remove_upload_link(link_idx)
+        set_post_description(post, post_description)
+        # Render the menu
+        await self.render_upload_propose_menu(event_msg, "links")
         raise StopPropagation
 

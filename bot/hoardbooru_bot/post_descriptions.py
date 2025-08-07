@@ -225,15 +225,23 @@ class UploadDataPostDocument(YamlPostDocument):
         link_data = self.yaml_doc.get("upload_links", [])
         return [UploadLink.from_dict(d) for d in link_data]
 
+    def save_upload_links(self, upload_links: list[UploadLink]) -> None:
+        self.yaml_doc["upload_links"] = [link.to_dict() for link in upload_links]
+
     def add_upload_link(self, link: UploadLink) -> None:
         upload_links = self.upload_links
         upload_links.append(link)
-        self.yaml_doc["upload_links"] = [link.to_dict() for link in upload_links]
+        self.save_upload_links(upload_links)
 
     def set_upload_link(self, link_idx: int, upload_link: UploadLink) -> None:
         upload_links = self.upload_links
         upload_links[link_idx] = upload_link
-        self.yaml_doc["upload_links"] = [link.to_dict() for link in upload_links]
+        self.save_upload_links(upload_links)
+
+    def remove_upload_link(self, link_idx: int) -> None:
+        upload_links = self.upload_links
+        del upload_links[link_idx]
+        self.save_upload_links(upload_links)
 
 
 T = TypeVar("T", bound=PostDocument)
