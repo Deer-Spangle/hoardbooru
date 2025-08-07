@@ -108,6 +108,14 @@ class UploadDataPostDocument(YamlPostDocument):
     def proposed_title(self) -> Optional[str]:
         return self.yaml_doc.get("proposed_data", {}).get("title")
 
+    @proposed_title.setter
+    def proposed_title(self, new_title: str) -> None:
+        if "data_type" not in self.yaml_doc:
+            self.yaml_doc["data_type"] = "upload_data"
+        if "proposed_data" not in self.yaml_doc:
+            self.yaml_doc["proposed_data"] = {}
+        self.yaml_doc["proposed_data"]["title"] = new_title
+
 
 T = TypeVar("T", bound=PostDocument)
 
