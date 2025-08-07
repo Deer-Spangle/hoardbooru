@@ -1010,13 +1010,19 @@ class Bot:
         post = self.hoardbooru.getPost(post_id)
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        # Get current field value
+        current_value: Optional[str] = None
+        if field == "title":
+            current_value = gallery_upload_data.proposed_title
+        else:
+            raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         # Build the message
         menu_data_str = hidden_data(menu_data)
         lines = []
         lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
-        lines += [f"Current {field}:", html.escape(str(gallery_upload_data.proposed_title))]
-        lines += ["---", f"Reply to this message to set a new {field}"]
+        lines += [f"<b>Current {field}:</b>", html.escape(str(current_value))]
+        lines += ["<b>---</b>", f"Reply to this message to set a new {field}"]
         await msg.edit(
             text = "\n".join(lines),
             buttons = [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
@@ -1032,14 +1038,21 @@ class Bot:
         if not menu_msg:
             logger.info("New tag message is not a reply to a tag phase menu")
             return
+        # Gather menu data
         menu_data = parse_hidden_data(menu_msg)
         post_id = int(menu_data["post_id"])
         proposed_field = menu_data["proposed_field"]
+        # Gather post data
         post = self.hoardbooru.getPost(post_id)
         post_desc = get_post_description(post)
         upload_data = post_desc.get_or_create_doc_matching_type(UploadDataPostDocument)
-        upload_data.proposed_title = event.message.text
+        # Set the proposed field
+        if proposed_field == "title":
+            upload_data.proposed_title = event.message.text
+        else:
+            raise ValueError(f"Could not set proposed field, unrecognised field: {proposed_field}")
+        # Save the data
         set_post_description(post, post_desc)
-        await event.reply(f"Set title to:\n{event.message.text}")
+        await event.reply(f"Set {proposed_field} to:\n{event.message.text}")
         await self.render_upload_propose_menu(menu_msg, proposed_field)
         raise StopPropagation
