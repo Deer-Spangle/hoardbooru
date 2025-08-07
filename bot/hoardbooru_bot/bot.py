@@ -999,20 +999,24 @@ class Bot:
         logger.info("Upload propose menu callback data: %s", callback_data)
         # Find the right post
         event_msg = await event.get_message()
-        menu_data = parse_hidden_data(event_msg)
+        await self.render_upload_propose_menu(event_msg, callback_data)
+        raise StopPropagation
+
+    async def render_upload_propose_menu(self, msg: Message, field: str) -> None:
+        menu_data = parse_hidden_data(msg)
         post_id = int(menu_data["post_id"])
-        menu_data["proposed_field"] = callback_data
+        menu_data["proposed_field"] = field
         # Fetch the post
         post = self.hoardbooru.getPost(post_id)
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
-        msg = await event.get_message()
+        # Build the message
         menu_data_str = hidden_data(menu_data)
         lines = []
-        lines += [f"{menu_data_str}Editing field: {callback_data}"]
+        lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
-        lines += [f"Current {callback_data}:", html.escape(str(gallery_upload_data.proposed_title))]
-        lines += ["---", f"Reply to this message to set a new {callback_data}"]
+        lines += [f"Current {field}:", html.escape(str(gallery_upload_data.proposed_title))]
+        lines += ["---", f"Reply to this message to set a new {field}"]
         await msg.edit(
             text = "\n".join(lines),
             buttons = [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
@@ -1030,11 +1034,12 @@ class Bot:
             return
         menu_data = parse_hidden_data(menu_msg)
         post_id = int(menu_data["post_id"])
+        proposed_field = menu_data["proposed_field"]
         post = self.hoardbooru.getPost(post_id)
         post_desc = get_post_description(post)
         upload_data = post_desc.get_or_create_doc_matching_type(UploadDataPostDocument)
         upload_data.proposed_title = event.message.text
         set_post_description(post, post_desc)
         await event.reply(f"Set title to:\n{event.message.text}")
-        # TODO: render the menu properly.
+        await self.render_upload_propose_menu(menu_msg, proposed_field)
         raise StopPropagation
