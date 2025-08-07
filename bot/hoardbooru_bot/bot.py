@@ -3,6 +3,7 @@ import glob
 import html
 import itertools
 import logging
+import re
 from typing import Optional, Coroutine, Any
 from zipfile import ZipFile, ZipInfo
 
@@ -973,11 +974,21 @@ class Bot:
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         proposed_lines = []
         proposed_buttons = []
-        if gallery_upload_data.proposed_title:
-            proposed_lines += [f"<b>Proposed title:</b> {html.escape(gallery_upload_data.proposed_title)}"]
+        if proposed_title := gallery_upload_data.proposed_title:
+            proposed_lines += [f"<b>Proposed title:</b> {html.escape(proposed_title)}"]
             proposed_buttons += [[Button.inline("✏️Edit title", "upload_propose:title")]]
         else:
             proposed_buttons += [[Button.inline("✏️Set title", "upload_propose:title")]]
+        if proposed_description := gallery_upload_data.proposed_description:
+            proposed_lines += ["<b>Proposed description:</b>", html.escape(proposed_description)]
+            proposed_buttons += [[Button.inline("✏️ Edit description", "upload_propose:description")]]
+        else:
+            proposed_buttons += [[Button.inline("✏️ Set description", "upload_propose:description")]]
+        if proposed_tags := gallery_upload_data.proposed_tags:
+            proposed_lines += ["<b>Proposed tags:</b>", html.escape(", ".join(proposed_tags))]
+            proposed_buttons += [[Button.inline("✏️ Edit tags", "upload_propose:tags")]]
+        else:
+            proposed_buttons += [[Button.inline("✏️ Set tags", "upload_propose:tags")]]
         # Construct message text
         lines = [title_line, url_line, *state_lines, *proposed_lines]
         buttons = state_buttons + proposed_buttons + [pagination_button_row]
@@ -1014,6 +1025,11 @@ class Bot:
         current_value: Optional[str] = None
         if field == "title":
             current_value = gallery_upload_data.proposed_title
+        elif field == "description":
+            current_value = gallery_upload_data.proposed_description
+        elif field == "tags":
+            proposed_tags = gallery_upload_data.proposed_tags
+            current_value = ", ".join(proposed_tags) if proposed_tags else None
         else:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         # Build the message
@@ -1049,6 +1065,11 @@ class Bot:
         # Set the proposed field
         if proposed_field == "title":
             upload_data.proposed_title = event.message.text
+        elif proposed_field == "description":
+            upload_data.proposed_description = event.message.text
+        elif proposed_field == "tags":
+            msg_text = event.message.text
+            upload_data.proposed_tags = re.split(r"[\s,]+", msg_text)
         else:
             raise ValueError(f"Could not set proposed field, unrecognised field: {proposed_field}")
         # Save the data

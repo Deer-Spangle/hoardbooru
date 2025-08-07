@@ -104,17 +104,42 @@ class UploadDataPostDocument(YamlPostDocument):
       - uploader_type: zephyr
     """
 
+    def set_data_type(self) -> None:
+        if "data_type" not in self.yaml_doc:
+            self.yaml_doc["data_type"] = "upload_data"
+
     @property
     def proposed_title(self) -> Optional[str]:
         return self.yaml_doc.get("proposed_data", {}).get("title")
 
     @proposed_title.setter
     def proposed_title(self, new_title: str) -> None:
-        if "data_type" not in self.yaml_doc:
-            self.yaml_doc["data_type"] = "upload_data"
+        self.set_data_type()
         if "proposed_data" not in self.yaml_doc:
             self.yaml_doc["proposed_data"] = {}
         self.yaml_doc["proposed_data"]["title"] = new_title
+
+    @property
+    def proposed_description(self) -> Optional[str]:
+        return self.yaml_doc.get("proposed_data", {}).get("description")
+
+    @proposed_description.setter
+    def proposed_description(self, new_description: str) -> None:
+        self.set_data_type()
+        if "proposed_data" not in self.yaml_doc:
+            self.yaml_doc["proposed_data"] = {}
+        self.yaml_doc["proposed_data"]["description"] = new_description
+
+    @property
+    def proposed_tags(self) -> Optional[list[str]]:
+        return self.yaml_doc.get("proposed_data", {}).get("tags")
+
+    @proposed_tags.setter
+    def proposed_tags(self, new_tags: list[str]) -> None:
+        self.set_data_type()
+        if "proposed_data" not in self.yaml_doc:
+            self.yaml_doc["proposed_data"] = {}
+        self.yaml_doc["proposed_data"]["tags"] = new_tags
 
 
 T = TypeVar("T", bound=PostDocument)
