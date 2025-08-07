@@ -21,10 +21,10 @@ class PostDocument(ABC):
             return RawTextPostDocument(raw_text)
         data_type = yaml_doc["data_type"]
         return {
-            "notion": NotionPostDocument.from_yaml(yaml_doc),
-            "telegram": TelegramPostDocument(yaml_doc),
-            "upload_links": UploadDataPostDocument(yaml_doc),
-        }[data_type]
+            "notion": NotionPostDocument.from_yaml,
+            "telegram": TelegramPostDocument,
+            "upload_data": UploadDataPostDocument,
+        }[data_type](yaml_doc)
 
 
 class RawTextPostDocument(PostDocument):
