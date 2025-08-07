@@ -226,6 +226,7 @@ class UploadDataPostDocument(YamlPostDocument):
         return [UploadLink.from_dict(d) for d in link_data]
 
     def save_upload_links(self, upload_links: list[UploadLink]) -> None:
+        self.set_data_type()
         self.yaml_doc["upload_links"] = [link.to_dict() for link in upload_links]
 
     def add_upload_link(self, link: UploadLink) -> None:
