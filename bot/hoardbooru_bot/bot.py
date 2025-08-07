@@ -55,7 +55,11 @@ def filter_photo(evt: events.NewMessage.Event) -> bool:
     return True
 
 
-async def filter_reply_to_menu_with_fields(evt: events.NewMessage.Event, fields: list[str]) -> bool:
+async def filter_reply_to_menu_with_fields(
+        evt: events.NewMessage.Event,
+        fields: list[str],
+        precise: bool = False,
+) -> bool:
     if not evt.message.text:
         return False
     original_msg = await evt.get_reply_message()
@@ -64,6 +68,9 @@ async def filter_reply_to_menu_with_fields(evt: events.NewMessage.Event, fields:
     menu_data = parse_hidden_data(original_msg)
     if not menu_data:
         return False
+    logger.warning("Aaaa, menu data: %s", menu_data)
+    if precise:
+        return set(fields) == set(menu_data.keys())
     return all(key in menu_data for key in fields)
 
 
@@ -72,11 +79,11 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 
 async def filter_reply_to_upload_propose_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["proposed_field", "query", "post_id"])
+    return await filter_reply_to_menu_with_fields(evt, ["query", "post_id", "proposed_field"], precise=True)
 
 
 async def filter_reply_to_upload_link_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["post_id", "upload_link_num"])
+    return await filter_reply_to_menu_with_fields(evt, ["query", "post_id", "proposed_field", "upload_link_num"])
 
 
 class Bot:
@@ -155,14 +162,14 @@ class Bot:
                 from_users=self.trusted_user_ids(),
             )
         )
-        # self.client.add_event_handler(
-        #     self.upload_link_info_with_reply,
-        #     events.NewMessage(
-        #         func=lambda e: filter_reply_to_upload_link_menu(e),
-        #         incoming=True,
-        #         from_users=self.trusted_user_ids(),
-        #     )
-        # )
+        self.client.add_event_handler(
+            self.upload_link_info_with_reply,
+            events.NewMessage(
+                func=lambda e: filter_reply_to_upload_link_menu(e),
+                incoming=True,
+                from_users=self.trusted_user_ids(),
+            )
+        )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
@@ -1211,8 +1218,6 @@ class Bot:
         post = self.hoardbooru.getPost(post_id)
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
-        # Get the right upload link
-        upload_link = gallery_upload_data.upload_links[link_idx]
         # Delete the upload link
         gallery_upload_data.remove_upload_link(link_idx)
         set_post_description(post, post_description)
@@ -1220,3 +1225,30 @@ class Bot:
         await self.render_upload_propose_menu(event_msg, "links")
         raise StopPropagation
 
+    async def upload_link_info_with_reply(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text:
+            return
+        # Fetch menu data
+        menu_msg = await event.get_reply_message()
+        if not menu_msg:
+            logger.info("New upload link info message is not a reply to a upload link info menu")
+            return
+        # Gather menu data
+        menu_data = parse_hidden_data(menu_msg)
+        post_id = int(menu_data["post_id"])
+        link_num = menu_data["upload_link_num"]
+        link_idx = int(link_num) - 1
+        # Gather post data
+        post = self.hoardbooru.getPost(post_id)
+        post_desc = get_post_description(post)
+        upload_data = post_desc.get_or_create_doc_matching_type(UploadDataPostDocument)
+        # Find the upload link
+        upload_link = upload_data.upload_links[link_idx]
+        # Update link info
+        upload_link.uploader_type_info = event.message.text
+        upload_data.set_upload_link(link_idx, upload_link)
+        set_post_description(post, post_desc)
+        # Send reply and update menu
+        await event.reply(f"Set upload link info to: {event.message.text}", link_preview=False)
+        await self.render_upload_link_menu(menu_msg, link_num)
+        raise StopPropagation
