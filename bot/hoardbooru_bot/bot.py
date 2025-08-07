@@ -68,7 +68,6 @@ async def filter_reply_to_menu_with_fields(
     menu_data = parse_hidden_data(original_msg)
     if not menu_data:
         return False
-    logger.warning("Aaaa, menu data: %s", menu_data)
     if precise:
         return set(fields) == set(menu_data.keys())
     return all(key in menu_data for key in fields)
