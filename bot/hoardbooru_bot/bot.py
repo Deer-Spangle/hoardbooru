@@ -28,6 +28,7 @@ from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
 from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument
+from utils.notion_descriptions.post_descriptions import set_post_description
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def filter_photo(evt: events.NewMessage.Event) -> bool:
     return True
 
 
-async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
+async def filter_reply_to_menu_with_fields(evt: events.NewMessage.Event, fields: list[str]) -> bool:
     if not evt.message.text:
         return False
     original_msg = await evt.get_reply_message()
@@ -62,7 +63,15 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
     menu_data = parse_hidden_data(original_msg)
     if not menu_data:
         return False
-    return all(key in menu_data for key in ["post_id", "tag_phase", "page", "order"])
+    return all(key in menu_data for key in fields)
+
+
+async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
+    return await filter_reply_to_menu_with_fields(evt, ["post_id", "tag_phase", "page", "order"])
+
+
+async def filter_reply_to_upload_propose_menu(evt: events.NewMessage.Event) -> bool:
+    return await filter_reply_to_menu_with_fields(evt, ["proposed_field", "query", "post_id"])
 
 
 class Bot:
@@ -133,6 +142,14 @@ class Bot:
                 from_users=self.trusted_user_ids(),
             ),
         )
+        self.client.add_event_handler(
+            self.propose_with_reply,
+            events.NewMessage(
+                func=lambda e: filter_reply_to_upload_propose_menu(e),
+                incoming=True,
+                from_users=self.trusted_user_ids(),
+            )
+        )
         self.client.add_event_handler(self.upload_confirm, events.CallbackQuery(pattern="upload:"))
         self.client.add_event_handler(self.tag_callback, events.CallbackQuery(pattern="tag:"))
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
@@ -142,6 +159,7 @@ class Bot:
         self.client.add_event_handler(self.spoiler_button_callback, events.CallbackQuery(pattern="spoiler:"))
         self.client.add_event_handler(self.unuploaded_page_callback, events.CallbackQuery(pattern="unuploaded:"))
         self.client.add_event_handler(self.upload_tag_callback, events.CallbackQuery(pattern="upload_tag:"))
+        self.client.add_event_handler(self.upload_propose_callback, events.CallbackQuery(pattern="upload_propose:"))
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -969,3 +987,54 @@ class Bot:
             buttons = buttons,
             parse_mode = "html",
         )
+
+    async def upload_propose_callback(self, event: events.CallbackQuery.Event) -> None:
+        if not event.data.startswith(b"upload_propose:"):
+            return
+        user = self.trusted_user_by_id(event.sender_id)
+        if user is None:
+            return
+        # Log callback data
+        callback_data = event.data[len(b"upload_propose:"):].decode()
+        logger.info("Upload propose menu callback data: %s", callback_data)
+        # Find the right post
+        event_msg = await event.get_message()
+        menu_data = parse_hidden_data(event_msg)
+        post_id = int(menu_data["post_id"])
+        menu_data["proposed_field"] = callback_data
+        # Fetch the post
+        post = self.hoardbooru.getPost(post_id)
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        msg = await event.get_message()
+        menu_data_str = hidden_data(menu_data)
+        lines = []
+        lines += [f"{menu_data_str}Editing field: {callback_data}"]
+        lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
+        lines += [f"Current {callback_data}:", html.escape(str(gallery_upload_data.proposed_title))]
+        lines += ["---", f"Reply to this message to set a new {callback_data}"]
+        await msg.edit(
+            text = "\n".join(lines),
+            buttons = [[Button.inline("Return to page", f"unuploaded:{post_id}")]],
+            parse_mode = "html",
+        )
+        raise StopPropagation
+
+    async def propose_with_reply(self, event: events.NewMessage.Event) -> None:
+        if not event.message.text:
+            return
+        # Fetch menu data
+        menu_msg = await event.get_reply_message()
+        if not menu_msg:
+            logger.info("New tag message is not a reply to a tag phase menu")
+            return
+        menu_data = parse_hidden_data(menu_msg)
+        post_id = int(menu_data["post_id"])
+        post = self.hoardbooru.getPost(post_id)
+        post_desc = get_post_description(post)
+        upload_data = post_desc.get_or_create_doc_matching_type(UploadDataPostDocument)
+        upload_data.proposed_title = event.message.text
+        set_post_description(post, post_desc)
+        await event.reply(f"Set title to:\n{event.message.text}")
+        # TODO: render the menu properly.
+        raise StopPropagation
