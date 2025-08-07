@@ -113,6 +113,7 @@ files = [
 [package.dependencies]
 aiohappyeyeballs = ">=2.3.0"
 aiosignal = ">=1.1.2"
+async-timeout = {version = ">=4.0,<6.0", markers = "python_version < \"3.11\""}
 attrs = ">=17.3.0"
 frozenlist = ">=1.1.1"
 multidict = ">=4.5,<7.0"
@@ -166,6 +167,19 @@ groups = ["main"]
 files = [
     {file = "appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"},
     {file = "appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41"},
+]
+
+[[package]]
+name = "async-timeout"
+version = "5.0.1"
+description = "Timeout context manager for asyncio programs"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "python_version == \"3.10\""
+files = [
+    {file = "async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c"},
+    {file = "async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3"},
 ]
 
 [[package]]
@@ -546,6 +560,9 @@ files = [
     {file = "multidict-6.1.0-py3-none-any.whl", hash = "sha256:48e171e52d1c4d33888e529b999e5900356b9ae588c2f09a52dcefb158b27506"},
     {file = "multidict-6.1.0.tar.gz", hash = "sha256:22ae2ebf9b0c69d206c003e2f6a914ea33f0a932d4aa16f236afc049d9958f4a"},
 ]
+
+[package.dependencies]
+typing-extensions = {version = ">=4.1.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "pillow"
@@ -1084,5 +1101,5 @@ propcache = ">=0.2.0"
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.12"
-content-hash = "09551ab43f6238b21103be0d8745191f4d55cd8e8552b00140b89abc45196bfc"
+python-versions = "^3.10"
+content-hash = "b0fcf6dd760e5111cbbbeeb526653bcf84ab3b2bc4513769ca970adc1a5da09c"
