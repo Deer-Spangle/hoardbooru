@@ -1,5 +1,6 @@
 import asyncio
 import glob
+import html
 import itertools
 import logging
 from typing import Optional, Coroutine, Any
@@ -22,11 +23,11 @@ from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc
 from hoardbooru_bot.inline_params import InlineParams
-from hoardbooru_bot.posted_state import PostsByUploadedState, PostUploadState
+from hoardbooru_bot.posted_state import PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
-
+from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument
 
 logger = logging.getLogger(__name__)
 
@@ -903,13 +904,14 @@ class Bot:
         menu_data = parse_hidden_data(msg)
         menu_data["post_id"] = str(post_id)
         post = self.hoardbooru.getPost(post_id)
-        post_status = PostUploadState(post, user.upload_tag_infix)
+        url_line = f"{self.hoardbooru_post_url(post_id)}"
         # Fetch the post media
         cache_entry = await self.media_cache.load_cache(post_id, False)
         if cache_entry is None:
             cache_entry = await self.media_cache.store_in_cache(post, False)
         input_media = cache_entry_to_input_media_doc(cache_entry)
-        # Construct the state buttons
+        # Construct the upload state buttons and text
+        post_status = PostUploadState(post, user.upload_tag_infix)
         state_buttons = []
         state_buttons += [[Button.inline(
             f"{tick_cross_if_true(post_status.e6_uploaded)} e621: Uploaded",
@@ -927,7 +929,11 @@ class Bot:
             f"{tick_cross_if_true(post_status.fa_not_uploading)} FA: Not uploading",
             f"upload_tag:{user.upload_tag_infix}_not_posting",
         )]]
-        # Construct pagination buttons
+        state_lines = [
+            f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}",
+            f"FA State: {bold_if_true(post_status.fa_state, post_status.fa_to_upload)}"
+        ]
+        # Construct pagination buttons and lines
         query = menu_data["query"]
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user.upload_tag_infix)
         posts_to_upload = upload_states.posts_to_upload
@@ -941,16 +947,25 @@ class Bot:
         if next_posts:
             next_post = min(next_posts, key=lambda p: p.id_)
             pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
-        # Construct message text
-        menu_data_str = hidden_data(menu_data)
         total_to_upload = len(posts_to_upload)
-        lines = [f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"]
-        lines += [f"{self.hoardbooru_post_url(post_id)}"]
-        lines += [f"e621 State: {bold_if_true(post_status.e6_state, post_status.e6_to_upload)}"]
-        lines += [f"FA State: {bold_if_true(post_status.fa_state, post_status.fa_to_upload)}"]
+        menu_data_str = hidden_data(menu_data)
+        title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
+        # Construct proposed data buttons and lines
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
+        proposed_lines = []
+        proposed_buttons = []
+        if gallery_upload_data.proposed_title:
+            proposed_lines += [f"Proposed title: {html.escape(gallery_upload_data.proposed_title)}"]
+            proposed_buttons += [[Button.inline("Edit title", "upload_propose:title")]]
+        else:
+            proposed_buttons += [[Button.inline("Set title", "upload_propose:title")]]
+        # Construct message text
+        lines = [title_line, url_line, *state_lines, *proposed_lines]
+        buttons = state_buttons + proposed_buttons + [pagination_button_row]
         await msg.edit(
             text = "\n".join(lines),
             file = input_media,
-            buttons = state_buttons + [pagination_button_row],
+            buttons = buttons,
             parse_mode = "html",
         )
