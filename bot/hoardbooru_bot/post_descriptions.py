@@ -142,8 +142,9 @@ class PostDescription:
                 current_doc_lines.append(line)
         # Add the final document
         final_doc_text = "\n".join(current_doc_lines)
-        final_doc = PostDocument.parse_text(final_doc_text)
-        documents.append(final_doc)
+        if final_doc_text:
+            final_doc = PostDocument.parse_text(final_doc_text)
+            documents.append(final_doc)
         return documents
 
     def to_string(self) -> Optional[str]:
