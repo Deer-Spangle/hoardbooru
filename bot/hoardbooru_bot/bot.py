@@ -876,7 +876,7 @@ class Bot:
         menu_data = {
             "query": query_str,
         }
-        menu_data_str = hidden_data(menu_data)
+        menu_data_str = hidden_data(menu_data, ["query"])
         earliest_post = min(upload_states.posts_to_upload, key=lambda post: post.id_)
         buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
@@ -982,7 +982,7 @@ class Bot:
             next_post = min(next_posts, key=lambda p: p.id_)
             pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
         total_to_upload = len(posts_to_upload)
-        menu_data_str = hidden_data(menu_data)
+        menu_data_str = hidden_data(menu_data, ["query", "post_id"])
         title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
         # Construct proposed data buttons and lines
         post_description = get_post_description(post)
@@ -1065,7 +1065,7 @@ class Bot:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         reply_action = reply_action or f"set a new {field}"
         # Build the message
-        menu_data_str = hidden_data(menu_data)
+        menu_data_str = hidden_data(menu_data, ["query", "post_id", "proposed_field"])
         lines = []
         lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
@@ -1145,7 +1145,7 @@ class Bot:
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Get the right upload link
         upload_link = gallery_upload_data.upload_links[int(link_num) - 1]
-        menu_data_str = hidden_data(menu_data)
+        menu_data_str = hidden_data(menu_data, ["query", "post_id", "proposed_field", "upload_link_num"])
         lines = []
         lines += [f"{menu_data_str}Editing upload link"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]

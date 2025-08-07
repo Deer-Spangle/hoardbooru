@@ -7,8 +7,13 @@ from telethon.tl.types import MessageEntityTextUrl, Message
 HIDDEN_DOMAIN = "example.com"
 
 
-def hidden_data(data: dict[str, str]) -> str:
-    params = urllib.parse.urlencode(data)
+def hidden_data(data: dict[str, str], keys: list[str] = None) -> str:
+    trim_data = data
+    if keys is not None:
+        trim_data = {}
+        for key in keys:
+            trim_data[key] = data[key]
+    params = urllib.parse.urlencode(trim_data)
     url = f"https://{HIDDEN_DOMAIN}?{params}"
     link = f"<a href=\"{url}\">​</a>"
     return link
