@@ -204,7 +204,11 @@ def get_post_description(post: pyszuru.Post) -> PostDescription:
     return description
 
 
+# noinspection PyProtectedMember
 def set_post_description(post: pyszuru.Post, description: PostDescription) -> None:
     raw_description = description.to_string()
-    post._generic_setter("description", raw_description)
-    post.push()  # TODO: get description to actually save
+    update_body = {"description": raw_description}
+    if "version" in post._json and post._json["version"]:
+        update_body["version"] = post._json["version"]
+    data = post._api._call("PUT", post._get_instance_urlparts(), body=update_body)
+    post._update_json(data, force=True)
