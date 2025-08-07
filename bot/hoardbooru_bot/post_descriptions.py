@@ -19,7 +19,7 @@ class PostDocument(ABC):
 
     @classmethod
     def parse_text(cls, raw_text: str) -> "PostDocument":
-        yaml_text = raw_text.removeprefix("```\n").removesuffix("\n```")
+        yaml_text = raw_text.removeprefix("---\n").removeprefix("```\n").removesuffix("\n---").removesuffix("\n```")
         try:
             yaml_doc = yaml.safe_load(yaml_text)
         except yaml.YAMLError:
