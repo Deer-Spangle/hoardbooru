@@ -974,10 +974,10 @@ class Bot:
         proposed_lines = []
         proposed_buttons = []
         if gallery_upload_data.proposed_title:
-            proposed_lines += [f"Proposed title: {html.escape(gallery_upload_data.proposed_title)}"]
-            proposed_buttons += [[Button.inline("Edit title", "upload_propose:title")]]
+            proposed_lines += [f"<b>Proposed title:</b> {html.escape(gallery_upload_data.proposed_title)}"]
+            proposed_buttons += [[Button.inline("✏️Edit title", "upload_propose:title")]]
         else:
-            proposed_buttons += [[Button.inline("Set title", "upload_propose:title")]]
+            proposed_buttons += [[Button.inline("✏️Set title", "upload_propose:title")]]
         # Construct message text
         lines = [title_line, url_line, *state_lines, *proposed_lines]
         buttons = state_buttons + proposed_buttons + [pagination_button_row]
