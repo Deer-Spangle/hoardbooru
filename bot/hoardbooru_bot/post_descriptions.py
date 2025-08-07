@@ -1,3 +1,7 @@
+import dataclasses
+import enum
+import re
+import urllib.parse
 # noinspection DuplicatedCode
 from abc import ABC, abstractmethod
 import datetime
@@ -88,6 +92,78 @@ class TelegramPostDocument(YamlPostDocument):
     pass
 
 
+class UploadLinkUploaderType(enum.Enum):
+    UNKNOWN = "unknown"
+    OURS = "ours"
+    ARTIST = "artist"
+    E621 = "e621"
+    OTHER_CHARACTER = "other_character"
+
+
+@dataclasses.dataclass
+class UploadLink:
+    link: str
+    uploader_type: UploadLinkUploaderType
+    uploader_type_info: Optional[str]
+    website: str
+
+    def to_string(self) -> str:
+        info = self.uploader_type_info
+        type_str = self.uploader_type.value
+        if info:
+            type_str += f" ({info})"
+        return f"{type_str}: {self.link}"
+
+    @classmethod
+    def from_string(cls, user_input: str) -> "UploadLink":
+        pattern = re.compile(r"^((?P<type>[a-z0-9_]+)( \((?P<info>.+)\))?: )?(?P<link>[\S]+)$")
+        match = pattern.match(user_input)
+        if not match:
+            raise ValueError("Could not parse upload")
+        link_str = match.group("link")
+        type_str = match.group("type")
+        uploader_type = UploadLinkUploaderType.UNKNOWN
+        if type_str:
+            uploader_type = UploadLinkUploaderType(type_str)
+        info_str = match.group("info")
+        parsed_url = urllib.parse.urlparse(link_str)
+        website = {
+            "furaffinity.net": "furaffinity",
+            "e621.net": "e621",
+            "weasyl.com": "weasyl",
+            "sofurry.com": "sofurry",
+            "furrynetwork.com": "furrynetwork",
+            "inkbunny.net": "inkbunny",
+        }.get(parsed_url.netloc.removeprefix("www."))
+        if website is None:
+            raise ValueError("Unrecognized website")
+        return cls(
+            link=link_str,
+            uploader_type=uploader_type,
+            uploader_type_info=info_str,
+            website=website,
+        )
+
+    def to_dict(self) -> dict:
+        data = {
+            "uploader_type": self.uploader_type.value,
+            "link": self.link,
+            "website": self.website,
+        }
+        if self.uploader_type_info:
+            data["uploader_type_info"] = self.uploader_type_info
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "UploadLink":
+        return cls(
+            data["link"],
+            UploadLinkUploaderType(data["uploader_type"]),
+            data.get("uploader_type_info"),
+            data["website"],
+        )
+
+
 class UploadDataPostDocument(YamlPostDocument):
     """
     data_type: upload_data
@@ -97,11 +173,14 @@ class UploadDataPostDocument(YamlPostDocument):
         tags: a, b, c
     uploads:
       - uploader_type: artist
+        website: furaffinity
         link: http://fa
       - uploader_type: e621
       - uploader_type: other_character
-      - uploader_type: spangle
-      - uploader_type: zephyr
+      - uploader_type: ours
+        uploader_type_info: spangle
+      - uploader_type: ours
+        uploader_type_info: zephyr
     """
 
     def set_data_type(self) -> None:
@@ -140,6 +219,17 @@ class UploadDataPostDocument(YamlPostDocument):
         if "proposed_data" not in self.yaml_doc:
             self.yaml_doc["proposed_data"] = {}
         self.yaml_doc["proposed_data"]["tags"] = new_tags
+
+    @property
+    def upload_links(self) -> list[UploadLink]:
+        link_data = self.yaml_doc.get("upload_links", [])
+        return [UploadLink.from_dict(d) for d in link_data]
+
+    def add_upload_link(self, link: UploadLink) -> None:
+        upload_links = self.upload_links
+        upload_links.append(link)
+        self.yaml_doc["upload_links"] = [link.to_dict() for link in upload_links]
+
 
 
 T = TypeVar("T", bound=PostDocument)

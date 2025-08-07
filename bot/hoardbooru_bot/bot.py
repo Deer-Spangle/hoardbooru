@@ -28,7 +28,7 @@ from hoardbooru_bot.posted_state import PostUploadState
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import bold_if_true, tick_cross_if_true
 from hoardbooru_bot.posted_state import UploadStateCache
-from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument
+from hoardbooru_bot.post_descriptions import get_post_description, UploadDataPostDocument, UploadLink
 from utils.notion_descriptions.post_descriptions import set_post_description
 
 logger = logging.getLogger(__name__)
@@ -989,6 +989,9 @@ class Bot:
             proposed_buttons += [[Button.inline("✏️ Edit tags", "upload_propose:tags")]]
         else:
             proposed_buttons += [[Button.inline("✏️ Set tags", "upload_propose:tags")]]
+        if upload_links := gallery_upload_data.upload_links:
+            proposed_lines += ["<b>Upload links:</b>", *[html.escape(link.to_string()) for link in upload_links]]
+        proposed_buttons += [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
         # Construct message text
         lines = [title_line, url_line, *state_lines, *proposed_lines]
         buttons = state_buttons + proposed_buttons + [pagination_button_row]
@@ -1030,6 +1033,12 @@ class Bot:
         elif field == "tags":
             proposed_tags = gallery_upload_data.proposed_tags
             current_value = ", ".join(proposed_tags) if proposed_tags else None
+        elif field == "links":
+            upload_links = gallery_upload_data.upload_links
+            link_lines = []
+            for n, upload_links in enumerate(upload_links, start = 1):
+                link_lines += [f"{n}: {html.escape(upload_links.to_string())}"]
+            current_value = "\n".join(link_lines)
         else:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         # Build the message
@@ -1065,15 +1074,26 @@ class Bot:
         # Set the proposed field
         if proposed_field == "title":
             upload_data.proposed_title = event.message.text
+            resp_text = f"Set title to:\n{upload_data.proposed_title}"
         elif proposed_field == "description":
             upload_data.proposed_description = event.message.text
+            resp_text = f"Set description to:\n{upload_data.proposed_description}"
         elif proposed_field == "tags":
             msg_text = event.message.text
             upload_data.proposed_tags = re.split(r"[\s,]+", msg_text)
+            resp_text = f"Set tags to:\n{', '.join(upload_data.proposed_tags)}"
+        elif proposed_field == "links":
+            try:
+                new_link = UploadLink.from_string(event.message.text)
+            except Exception as e:
+                await event.reply(f"Failed to parse upload link:\n{e}")
+                raise StopPropagation
+            upload_data.add_upload_link(new_link)
+            resp_text = f"Added new upload link:\n{new_link.to_string()}"
         else:
             raise ValueError(f"Could not set proposed field, unrecognised field: {proposed_field}")
         # Save the data
         set_post_description(post, post_desc)
-        await event.reply(f"Set {proposed_field} to:\n{event.message.text}")
+        await event.reply(resp_text, link_preview=False)
         await self.render_upload_propose_menu(menu_msg, proposed_field)
         raise StopPropagation
