@@ -107,7 +107,10 @@ def extract_upload_link_info(link: str, website: str) -> Optional[str]:
     if website == "e621":
         return None
     if website == "weasyl":
-        return re.search(r"/~([^/]+)/", link).group(1)
+        profile_name = re.search(r"/~([^/]+)/", link).group(1)
+        if profile_name == "deerspangle":
+            return "spangle"
+        return profile_name
     if website == "twitter":
         return re.search(r"https://twitter.com/([^/]+)/status", link).group(1)
     if website == "bluesky":
