@@ -1161,6 +1161,8 @@ class Bot:
         lines += ["Use menu to set upload link type, or delete link, and reply to this message to set the upload link info"]
         buttons = []
         for link_type in UploadLinkUploaderType:
+            if link_type == UploadLinkUploaderType.E621:
+                continue
             buttons += [[Button.inline(f"Set type: {link_type.name}", f"upload_link_type:{link_type.value}")]]
         buttons += [[Button.inline("❌ Delete link", "upload_link_delete")]]
         buttons += [[Button.inline("⏎ Return to upload links", "upload_propose:links")]]
