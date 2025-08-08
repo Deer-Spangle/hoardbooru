@@ -133,7 +133,7 @@ class PostsByUploadedState:
         self.all_post_states.append(PostUploadState(post, user_infix))
 
     def list_alts(self, commission_tag: str) -> list[pyszuru.Post]:
-        return [p.post for p in self.all_post_states if p.commission_tag == commission_tag]
+        return [p.post for p in self.all_post_states if p.commission_tag == commission_tag and p.to_upload]
 
     @classmethod
     def list_by_state(cls, api: pyszuru.API, query: str, user_infix: str) -> "PostsByUploadedState":
