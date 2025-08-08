@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import logging
 from functools import lru_cache, cached_property
+from typing import Optional
 
 import pyszuru
 
@@ -64,6 +65,13 @@ class PostUploadState:
     def to_upload(self) -> bool:
         return self.e6_to_upload or self.fa_to_upload
 
+    @property
+    def commission_tag(self) -> Optional[str]:
+        commission_tags = [t for t in self.post.tags if t.category == "meta-commissions"]
+        if len(commission_tags) != 1:
+            return None
+        return commission_tags[0].primary_name
+
 
 @dataclasses.dataclass
 class PostsByUploadedState:
@@ -123,6 +131,9 @@ class PostsByUploadedState:
         if user_infix is None:
             raise ValueError("Posts did not have user infix")
         self.all_post_states.append(PostUploadState(post, user_infix))
+
+    def list_alts(self, commission_tag: str) -> list[pyszuru.Post]:
+        return [p.post for p in self.all_post_states if p.commission_tag == commission_tag]
 
     @classmethod
     def list_by_state(cls, api: pyszuru.API, query: str, user_infix: str) -> "PostsByUploadedState":

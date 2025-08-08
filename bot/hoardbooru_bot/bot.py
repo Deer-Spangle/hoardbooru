@@ -998,6 +998,14 @@ class Bot:
         total_to_upload = len(posts_to_upload)
         menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id"])
         title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
+        # Construct alts line
+        alts_line = []
+        commission_tags = [t for t in post.tags if t.category == "meta-commissions"]
+        if len(commission_tags) == 1:
+            commission_tag_name = commission_tags[0].primary_name
+            list_alts = upload_states.list_alts(commission_tag_name)
+            if len(list_alts) > 1:
+                alts_line = [f"This post is 1 of {len(list_alts)} alts in this list."]
         # Construct proposed data buttons and lines
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
@@ -1016,7 +1024,7 @@ class Bot:
             proposed_lines += ["<b>Upload links:</b>", *["- " + html.escape(link.to_string()) for link in upload_links]]
         links_buttons = [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
         # Construct message text
-        lines = [title_line, url_line, *state_lines, *proposed_lines]
+        lines = [title_line, url_line, *alts_line, *state_lines, *proposed_lines]
         buttons = state_buttons + [edit_buttons] + links_buttons + [pagination_button_row]
         await msg.edit(
             text = "\n".join(lines),
