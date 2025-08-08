@@ -107,13 +107,13 @@ def extract_upload_link_info(link: str, website: str) -> Optional[str]:
     if website == "e621":
         return None
     if website == "weasyl":
-        return re.match(r"/~([^/]+)/", link).group(1)
+        return re.search(r"/~([^/]+)/", link).group(1)
     if website == "twitter":
-        return re.match(r"https://twitter.com/([^/]+)/status", link).group(1)
+        return re.search(r"https://twitter.com/([^/]+)/status", link).group(1)
     if website == "bluesky":
-        return re.match(r"bsky.app/profile/([^/]+)/post", link).group(1)
+        return re.search(r"bsky.app/profile/([^/]+)/post", link).group(1)
     if website == "furaffinity":
-        post_id = re.match(r"/view/([0-9]+)/?$", link).group(1)
+        post_id = re.search(r"/view/([0-9]+)/?$", link).group(1)
         resp = requests.get(f"https://faexport.spangle.org.uk/submission/{post_id}.json").json()
         return resp["profile_name"]
 
