@@ -155,6 +155,8 @@ class UploadLink:
                 type_str = "other_character"
             uploader_type = UploadLinkUploaderType(type_str.lower())
         info_str = match.group("info")
+        if info_str.lower() in ["spangle", "zephyr"]:
+            info_str = info_str.lower()
         parsed_url = urllib.parse.urlparse(link_str)
         website = {
             "furaffinity.net": "furaffinity",
