@@ -175,7 +175,7 @@ class UploadLink:
             else:
                 for tag in post.tags:
                     for tag_name in tag.names:
-                        if tag_name != info_str:
+                        if tag_name.lower() != info_str.lower():
                             continue
                         if tag.category == "artists":
                             uploader_type = UploadLinkUploaderType.ARTIST
