@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import json
 import re
 import urllib.parse
 # noinspection DuplicatedCode
@@ -8,6 +9,7 @@ import datetime
 from typing import Type, Optional, TypeVar
 
 import pyszuru
+import requests
 import yaml
 
 
@@ -110,6 +112,10 @@ def extract_upload_link_info(link: str, website: str) -> Optional[str]:
         return re.match(r"https://twitter.com/([^/]+)/status", link).group(1)
     if website == "bluesky":
         return re.match(r"bsky.app/profile/([^/]+)/post", link).group(1)
+    if website == "furaffinity":
+        post_id = re.match(r"/view/([0-9]+)/?$", link).group(1)
+        resp = requests.get(f"https://faexport.spangle.org.uk/submission/{post_id}.json").json()
+        return resp["profile_name"]
 
 
 @dataclasses.dataclass
