@@ -1123,7 +1123,7 @@ class Bot:
             resp_text = f"Set tags to:\n{', '.join(upload_data.proposed_tags)}"
         elif proposed_field == "links":
             try:
-                new_link = UploadLink.from_string(event.message.text)
+                new_link = UploadLink.from_string(event.message.text, post)
             except Exception as e:
                 await event.reply(f"Failed to parse upload link:\n{e}")
                 raise StopPropagation

@@ -139,7 +139,7 @@ class UploadLink:
         return f"{type_str}: {self.link}"
 
     @classmethod
-    def from_string(cls, user_input: str) -> "UploadLink":
+    def from_string(cls, user_input: str, post: pyszuru.Post) -> "UploadLink":
         pattern = re.compile(r"^((?P<type>[A-Za-z0-9_]+)( *\((?P<info>.+)\))? *: +)?(?P<link>[\S]+)$")
         match = pattern.match(user_input)
         if not match:
@@ -169,6 +169,18 @@ class UploadLink:
             uploader_type = UploadLinkUploaderType.E621
         if info_str is None:
             info_str = extract_upload_link_info(link_str, website)
+        if info_str is not None and uploader_type == UploadLinkUploaderType.UNKNOWN:
+            if info_str in ["spangle", "zephyr"]:
+                uploader_type = UploadLinkUploaderType.OURS
+            else:
+                for tag in post.tags:
+                    for tag_name in tag.names:
+                        if tag_name != info_str:
+                            continue
+                        if tag.category == "artists":
+                            uploader_type = UploadLinkUploaderType.ARTIST
+                        if tag.category == "characters":
+                            uploader_type = UploadLinkUploaderType.UNKNOWN
         return cls(
             link=link_str,
             uploader_type=uploader_type,
