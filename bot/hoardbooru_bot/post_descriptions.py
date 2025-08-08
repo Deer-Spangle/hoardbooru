@@ -101,6 +101,17 @@ class UploadLinkUploaderType(enum.Enum):
     OTHER_CHARACTER = "other_character"
 
 
+def extract_upload_link_info(link: str, website: str) -> Optional[str]:
+    if website == "e621":
+        return None
+    if website == "weasyl":
+        return re.match(r"/~([^/]+)/", link).group(1)
+    if website == "twitter":
+        return re.match(r"https://twitter.com/([^/]+)/status", link).group(1)
+    if website == "bluesky":
+        return re.match(r"bsky.app/profile/([^/]+)/post", link).group(1)
+
+
 @dataclasses.dataclass
 class UploadLink:
     link: str
@@ -144,6 +155,8 @@ class UploadLink:
             raise ValueError("Unrecognized website")
         if website == "e621" and uploader_type == UploadLinkUploaderType.UNKNOWN:
             uploader_type = UploadLinkUploaderType.E621
+        if info_str is None:
+            info_str = extract_upload_link_info(link_str, website)
         return cls(
             link=link_str,
             uploader_type=uploader_type,
