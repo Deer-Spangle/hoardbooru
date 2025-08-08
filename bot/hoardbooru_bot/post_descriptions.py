@@ -140,6 +140,8 @@ class UploadLink:
         }.get(parsed_url.netloc.removeprefix("www."))
         if website is None:
             raise ValueError("Unrecognized website")
+        if website == "e621" and uploader_type == UploadLinkUploaderType.UNKNOWN:
+            uploader_type = UploadLinkUploaderType.E621
         return cls(
             link=link_str,
             uploader_type=uploader_type,
