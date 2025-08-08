@@ -125,6 +125,8 @@ class UploadLink:
         type_str = match.group("type")
         uploader_type = UploadLinkUploaderType.UNKNOWN
         if type_str:
+            if type_str.lower() == "other":
+                type_str = "other_character"
             uploader_type = UploadLinkUploaderType(type_str.lower())
         info_str = match.group("info")
         parsed_url = urllib.parse.urlparse(link_str)
