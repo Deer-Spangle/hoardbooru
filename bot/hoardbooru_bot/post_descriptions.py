@@ -135,6 +135,8 @@ class UploadLink:
             "sofurry.com": "sofurry",
             "furrynetwork.com": "furrynetwork",
             "inkbunny.net": "inkbunny",
+            "twitter.com": "twitter",
+            "bsky.app": "bliuesky",
         }.get(parsed_url.netloc.removeprefix("www."))
         if website is None:
             raise ValueError("Unrecognized website")
