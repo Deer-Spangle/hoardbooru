@@ -117,7 +117,7 @@ class UploadLink:
 
     @classmethod
     def from_string(cls, user_input: str) -> "UploadLink":
-        pattern = re.compile(r"^((?P<type>[a-z0-9_]+)( *\((?P<info>.+)\))? *: *)?(?P<link>[\S]+)$")
+        pattern = re.compile(r"^((?P<type>[A-Za-z0-9_]+)( *\((?P<info>.+)\))? *: +)?(?P<link>[\S]+)$")
         match = pattern.match(user_input)
         if not match:
             raise ValueError("Could not parse upload")
