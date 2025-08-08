@@ -22,7 +22,8 @@ from hoardbooru_bot.database import Database, CacheEntry
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
-from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc
+from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc, \
+    tick_if_true
 from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.posted_state import PostUploadState
 from hoardbooru_bot.users import TrustedUser
@@ -1159,11 +1160,13 @@ class Bot:
         lines += ["Modifying upload link:"]
         lines += [html.escape(upload_link.to_string())]
         lines += ["Use menu to set upload link type, or delete link, and reply to this message to set the upload link info"]
-        buttons = []
+        link_type_buttons = []
         for link_type in UploadLinkUploaderType:
             if link_type == UploadLinkUploaderType.E621:
                 continue
-            buttons += [[Button.inline(f"Set type: {link_type.name}", f"upload_link_type:{link_type.value}")]]
+            link_type_text = tick_if_true(upload_link.uploader_type == link_type) + " " + link_type.name.title()
+            link_type_buttons += [Button.inline(link_type_text, f"upload_link_type:{link_type.value}")]
+        buttons = [link_type_buttons[n:n+2] for n in range(0, len(link_type_buttons), 2)]
         buttons += [[Button.inline("❌ Delete link", "upload_link_delete")]]
         buttons += [[Button.inline("⏎ Return to upload links", "upload_propose:links")]]
         await msg.edit(
