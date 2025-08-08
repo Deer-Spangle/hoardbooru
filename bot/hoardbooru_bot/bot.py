@@ -1001,28 +1001,22 @@ class Bot:
         post_description = get_post_description(post)
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         proposed_lines = []
-        proposed_buttons = []
+        edit_buttons = []
         if proposed_title := gallery_upload_data.proposed_title:
             proposed_lines += [f"<b>Proposed title:</b> {html.escape(proposed_title)}"]
-            proposed_buttons += [[Button.inline("✏️Edit title", "upload_propose:title")]]
-        else:
-            proposed_buttons += [[Button.inline("✏️Set title", "upload_propose:title")]]
+        edit_buttons += [Button.inline("✏️Title", "upload_propose:title")]
         if proposed_description := gallery_upload_data.proposed_description:
             proposed_lines += ["<b>Proposed description:</b>", html.escape(proposed_description)]
-            proposed_buttons += [[Button.inline("✏️ Edit description", "upload_propose:description")]]
-        else:
-            proposed_buttons += [[Button.inline("✏️ Set description", "upload_propose:description")]]
+        edit_buttons += [Button.inline("✏️ Description", "upload_propose:description")]
         if proposed_tags := gallery_upload_data.proposed_tags:
             proposed_lines += ["<b>Proposed tags:</b>", html.escape(", ".join(proposed_tags))]
-            proposed_buttons += [[Button.inline("✏️ Edit tags", "upload_propose:tags")]]
-        else:
-            proposed_buttons += [[Button.inline("✏️ Set tags", "upload_propose:tags")]]
+        edit_buttons += [Button.inline("✏️ Tags", "upload_propose:tags")]
         if upload_links := gallery_upload_data.upload_links:
             proposed_lines += ["<b>Upload links:</b>", *["- " + html.escape(link.to_string()) for link in upload_links]]
-        proposed_buttons += [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
+        links_buttons = [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
         # Construct message text
         lines = [title_line, url_line, *state_lines, *proposed_lines]
-        buttons = state_buttons + proposed_buttons + [pagination_button_row]
+        buttons = state_buttons + [edit_buttons] + links_buttons + [pagination_button_row]
         await msg.edit(
             text = "\n".join(lines),
             file = input_media,
