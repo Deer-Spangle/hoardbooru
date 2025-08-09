@@ -1125,7 +1125,7 @@ class Bot:
             try:
                 new_link = UploadLink.from_string(event.message.text, post)
             except Exception as e:
-                await event.reply(f"Failed to parse upload link:\n{e}")
+                await event.reply(f"Failed to parse upload link:\n{e!r}")
                 raise StopPropagation
             upload_data.add_upload_link(new_link)
             resp_text = f"Added new upload link:\n{new_link.to_string()}"
