@@ -1140,8 +1140,8 @@ class Bot:
             resp_text = f"Set tags to:\n{', '.join(upload_data.proposed_tags)}"
         elif proposed_field == "links":
             msg_text = event.message.text
-            if msg_text[:4].lower() == "bulk":
-                links = links_in_msg(event.message)
+            links = links_in_msg(event.message)
+            if msg_text[:4].lower() == "bulk" or len(links) > 1:
                 try:
                     new_links = UploadLink.from_bulk_links(links, post)
                 except Exception as e:
