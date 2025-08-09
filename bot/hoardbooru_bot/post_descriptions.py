@@ -149,7 +149,7 @@ class UploadLink:
         return f"{type_str}: {self.link}"
 
     @classmethod
-    def from_string(cls, user_input: str, post: pyszuru.Post) -> "UploadLink":
+    def from_string(cls, user_input: str, post: pyszuru.Post) -> Optional["UploadLink"]:
         pattern = re.compile(r"^((?P<type>[A-Za-z0-9_]+)( *\((?P<info>.+)\))? *: +)?(?P<link>[\S]+)$")
         match = pattern.match(user_input)
         if not match:
@@ -176,6 +176,9 @@ class UploadLink:
             "bsky.app": "bliuesky",
         }.get(parsed_url.netloc.removeprefix("www."))
         if website is None:
+            ignored_urls = ["lens.google.com", "saucenao.com", "yandex.com", "tineye.com", "kheina.com", "derpibooru.org"]
+            if parsed_url.netloc in ignored_urls:
+                return None
             raise ValueError(f"Unrecognized domain: {parsed_url.netloc}")
         if website == "e621" and uploader_type == UploadLinkUploaderType.UNKNOWN:
             uploader_type = UploadLinkUploaderType.E621
@@ -206,7 +209,9 @@ class UploadLink:
     def from_bulk_links(cls, links: list[str], post: pyszuru.Post) -> list["UploadLink"]:
         new_links = []
         for link in links:
-            new_links.append(cls.from_string(link, post))
+            new_link = cls.from_string(link, post)
+            if new_link is not None:
+                new_links.append(cls.from_string(link, post))
         # Post-processing
         ours_spangle = False
         for link in new_links:
