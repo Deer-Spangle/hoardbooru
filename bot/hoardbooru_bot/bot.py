@@ -996,7 +996,7 @@ class Bot:
         # Construct pagination buttons and lines
         query = menu_data["query"]
         user_infix = menu_data["user_infix"]
-        upload_only = menu_data["uploaded_only"] == True
+        upload_only = menu_data["uploaded_only"] == "True"
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user_infix)
         if upload_only:
             posts_to_upload = upload_states.posts_not_to_upload
