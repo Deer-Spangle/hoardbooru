@@ -207,6 +207,21 @@ class UploadLink:
         new_links = []
         for link in links:
             new_links.append(cls.from_string(link, post))
+        # Post-processing
+        ours_spangle = False
+        for link in new_links:
+            if link.uploader_type == UploadLinkUploaderType.OURS and link.uploader_type_info == "spangle":
+                ours_spangle = True
+        if ours_spangle:
+            fn_links = [link for link in new_links if link.website == "furrynetwork"]
+            if len(fn_links) == 1:
+                fn_links[0].uploader_type = UploadLinkUploaderType.OURS
+                fn_links[0].uploader_type_info = "spangle"
+            ib_links = [link for link in new_links if link.website == "inkbunny"]
+            if len(ib_links) == 1:
+                ib_links[0].uploader_type = UploadLinkUploaderType.OURS
+                ib_links[0].uploader_type_info = "spangle"
+        # Return the new links
         return new_links
 
     def to_dict(self) -> dict:
