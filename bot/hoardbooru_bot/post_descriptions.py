@@ -26,6 +26,8 @@ class PostDocument(ABC):
             yaml_doc = yaml.safe_load(yaml_text)
         except yaml.YAMLError:
             return RawTextPostDocument(raw_text)
+        if isinstance(yaml_doc, str):
+            return RawTextPostDocument(raw_text)
         data_type = yaml_doc["data_type"]
         return {
             "notion": NotionPostDocument.from_yaml,
