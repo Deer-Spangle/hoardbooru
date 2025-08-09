@@ -153,7 +153,7 @@ class UploadLink:
         pattern = re.compile(r"^((?P<type>[A-Za-z0-9_]+)( *\((?P<info>.+)\))? *: +)?(?P<link>[\S]+)$")
         match = pattern.match(user_input)
         if not match:
-            raise ValueError("Could not parse upload")
+            raise ValueError(f"Could not parse upload: {user_input}")
         link_str = match.group("link")
         type_str = match.group("type")
         uploader_type = UploadLinkUploaderType.UNKNOWN
