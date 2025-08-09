@@ -121,6 +121,8 @@ def extract_upload_link_info(link: str, website: str) -> Optional[str]:
             resp = requests.get(f"https://faexport.spangle.org.uk/submission/{post_id}.json").json()
         except:
             return None
+        if resp.get("error_type") == "fa_not_found":
+            return None
         profile_name = resp["profile_name"]
         # TODO: improve with automation on tag data
         if profile_name == "dr-spangle":
