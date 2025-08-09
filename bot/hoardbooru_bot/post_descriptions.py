@@ -202,6 +202,13 @@ class UploadLink:
             website=website,
         )
 
+    @classmethod
+    def from_bulk_links(cls, links: list[str], post: pyszuru.Post) -> list["UploadLink"]:
+        new_links = []
+        for link in links:
+            new_links.append(cls.from_string(link, post))
+        return new_links
+
     def to_dict(self) -> dict:
         data = {
             "uploader_type": self.uploader_type.value,

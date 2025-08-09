@@ -23,7 +23,7 @@ from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc, \
-    tick_if_true
+    tick_if_true, links_in_msg
 from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.posted_state import PostUploadState
 from hoardbooru_bot.users import TrustedUser
@@ -1139,13 +1139,25 @@ class Bot:
             upload_data.proposed_tags = re.split(r"[\s,]+", msg_text)
             resp_text = f"Set tags to:\n{', '.join(upload_data.proposed_tags)}"
         elif proposed_field == "links":
-            try:
-                new_link = UploadLink.from_string(event.message.text, post)
-            except Exception as e:
-                await event.reply(f"Failed to parse upload link:\n{e!r}")
-                raise StopPropagation
-            upload_data.add_upload_link(new_link)
-            resp_text = f"Added new upload link:\n{new_link.to_string()}"
+            msg_text = event.message.text
+            if msg_text[:4].lower() == "bulk":
+                links = links_in_msg(event.message)
+                try:
+                    new_links = UploadLink.from_bulk_links(links, post)
+                except Exception as e:
+                    await event.reply(f"Failed to parse bulk upload links:\n{e!r}")
+                    raise StopPropagation
+            else:
+                try:
+                    new_links = [UploadLink.from_string(event.message.text, post)]
+                except Exception as e:
+                    await event.reply(f"Failed to parse upload link:\n{e!r}")
+                    raise StopPropagation
+            resp_lines = ["Added new upload link:"]
+            for new_link in new_links:
+                upload_data.add_upload_link(new_link)
+                resp_lines.append(new_link.to_string())
+            resp_text = "\n".join(resp_lines)
         else:
             raise ValueError(f"Could not set proposed field, unrecognised field: {proposed_field}")
         # Save the data

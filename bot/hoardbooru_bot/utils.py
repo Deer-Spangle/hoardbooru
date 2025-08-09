@@ -7,7 +7,8 @@ import PIL
 import aiofiles.os
 import aiohttp
 from PIL import Image
-from telethon.tl.types import InputPhoto, InputDocument, InputMediaPhoto, InputMediaDocument
+from telethon.tl.types import InputPhoto, InputDocument, InputMediaPhoto, InputMediaDocument, Message, \
+    MessageEntityTextUrl
 import telethon.utils
 
 if TYPE_CHECKING:
@@ -131,3 +132,7 @@ def tick_if_true(is_true: bool) -> str:
 
 def tick_cross_if_true(is_true: bool) -> str:
     return "✅" if is_true else "❌"
+
+
+def links_in_msg(msg: Message) -> list[str]:
+    return [entity.url for entity, _text in msg.get_entities_text(MessageEntityTextUrl)]
