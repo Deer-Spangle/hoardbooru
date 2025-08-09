@@ -110,6 +110,10 @@ class PostsByUploadedState:
     def posts_to_upload(self) -> list[pyszuru.Post]:
         return [p.post for p in self.all_post_states if p.to_upload]
 
+    @cached_property
+    def posts_not_to_upload(self) -> list[pyszuru.Post]:
+        return [p.post for p in self.all_post_states if not p.to_upload]
+
     def clear_cache_property(self, prop: str) -> None:
         if prop in self.__dict__:
             del self.__dict__[prop]

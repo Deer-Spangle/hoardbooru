@@ -864,12 +864,17 @@ class Bot:
                 user_infix = trusted_user.upload_tag_infix
         if user_infix == user.upload_tag_infix and user.owner_tag not in query_tags:
             query_tags.append(user.owner_tag)
+        # If "uploaded" is specified, invert normal behaviour
+        uploaded_only = "uploaded" in query_tags
+        if uploaded_only:
+            query_tags.remove("uploaded")
         query_str = " ".join(query_tags)
-        logger.info(f"Got unuploaded command with query: {query_str}")
+        logger.info(f"Got %sunuploaded command with query: {query_str}", "inverted " if uploaded_only else "")
         # Gather posts into which are uploaded where
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix, refresh=True)
         # Post the message saying the current state of things.
-        msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this search (\"{query_str}\")"]
+        inverted_text = "<b>inverted</b> " if uploaded_only else ""
+        msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this {inverted_text}search (\"{query_str}\")"]
         e621_section_lines = ["e621 upload state:"]
         e621_section_lines += [f"- {len(upload_states.e6_uploaded)} Uploaded"]
         e621_section_lines += [f"- {len(upload_states.e6_not_uploading)} Not to upload"]
@@ -886,10 +891,17 @@ class Bot:
         menu_data = {
             "query": query_str,
             "user_infix": user_infix,
+            "uploaded_only": str(uploaded_only),
         }
-        menu_data_str = hidden_data(menu_data, ["query", "user_infix"])
-        earliest_post = min(upload_states.posts_to_upload, key=lambda post: post.id_)
-        buttons = [Button.inline("Categorise unuploaded", f"unuploaded:{earliest_post.id_}")]
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only"])
+        if uploaded_only:
+            posts_in_search = upload_states.posts_not_to_upload
+            button_text = "Categorise uploaded only"
+        else:
+            posts_in_search = upload_states.posts_to_upload
+            button_text = "Categorise unuploaded"
+        earliest_post = min(posts_in_search, key=lambda post: post.id_)
+        buttons = [Button.inline(button_text, f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
         raise StopPropagation
 
@@ -983,8 +995,12 @@ class Bot:
         # Construct pagination buttons and lines
         query = menu_data["query"]
         user_infix = menu_data["user_infix"]
+        upload_only = menu_data["uploaded_only"] == True
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query, user_infix)
-        posts_to_upload = upload_states.posts_to_upload
+        if upload_only:
+            posts_to_upload = upload_states.posts_not_to_upload
+        else:
+            posts_to_upload = upload_states.posts_to_upload
         next_posts = [p for p in posts_to_upload if p.id_ > post_id]
         prev_posts = [p for p in posts_to_upload if p.id_ < post_id]
         pagination_button_row = []
@@ -996,7 +1012,7 @@ class Bot:
             next_post = min(next_posts, key=lambda p: p.id_)
             pagination_button_row.append(Button.inline("➡️ Next", f"unuploaded:{next_post.id_}"))
         total_to_upload = len(posts_to_upload)
-        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only", "post_id"])
         title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
         # Construct alts line
         alts_line = []
@@ -1081,7 +1097,7 @@ class Bot:
             raise ValueError(f"Unrecognised field for proposed upload data: {field}")
         reply_action = reply_action or f"set a new {field}"
         # Build the message
-        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id", "proposed_field"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only", "post_id", "proposed_field"])
         lines = []
         lines += [f"{menu_data_str}Editing field: {field}"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
@@ -1161,7 +1177,7 @@ class Bot:
         gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Get the right upload link
         upload_link = gallery_upload_data.upload_links[int(link_num) - 1]
-        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "post_id", "proposed_field", "upload_link_num"])
+        menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only", "post_id", "proposed_field", "upload_link_num"])
         lines = []
         lines += [f"{menu_data_str}Editing upload link"]
         lines += [f"Post ID: {post_id} {self.hoardbooru_post_url(post_id)}"]
