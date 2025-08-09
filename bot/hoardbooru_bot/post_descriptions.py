@@ -117,7 +117,10 @@ def extract_upload_link_info(link: str, website: str) -> Optional[str]:
         return re.search(r"bsky.app/profile/([^/]+)/post", link).group(1)
     if website == "furaffinity":
         post_id = re.search(r"/view/([0-9]+)/?$", link).group(1)
-        resp = requests.get(f"https://faexport.spangle.org.uk/submission/{post_id}.json").json()
+        try:
+            resp = requests.get(f"https://faexport.spangle.org.uk/submission/{post_id}.json").json()
+        except:
+            return None
         profile_name = resp["profile_name"]
         # TODO: improve with automation on tag data
         if profile_name == "dr-spangle":
