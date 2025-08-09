@@ -1258,7 +1258,10 @@ class Bot:
         # Find the upload link
         upload_link = upload_data.upload_links[link_idx]
         # Update link info
-        upload_link.uploader_type_info = event.message.text
+        link_info = event.message.text
+        if link_info.lower() in ["spangle", "zephyr"]:
+            link_info = link_info.lower()
+        upload_link.uploader_type_info = link_info
         upload_data.set_upload_link(link_idx, upload_link)
         set_post_description(post, post_desc)
         # Send reply and update menu
