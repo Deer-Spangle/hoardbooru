@@ -1265,6 +1265,6 @@ class Bot:
         upload_data.set_upload_link(link_idx, upload_link)
         set_post_description(post, post_desc)
         # Send reply and update menu
-        await event.reply(f"Set upload link info to: {event.message.text}", link_preview=False)
+        await event.reply(f"Set upload link info to: {link_info}", link_preview=False)
         await self.render_upload_link_menu(menu_msg, link_num)
         raise StopPropagation
