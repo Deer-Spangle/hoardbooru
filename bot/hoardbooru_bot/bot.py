@@ -79,11 +79,11 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 
 async def filter_reply_to_upload_propose_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "post_id", "proposed_field"], precise=True)
+    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "uploaded_only", "post_id", "proposed_field"], precise=True)
 
 
 async def filter_reply_to_upload_link_menu(evt: events.NewMessage.Event) -> bool:
-    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "post_id", "proposed_field", "upload_link_num"])
+    return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "uploaded_only", "post_id", "proposed_field", "upload_link_num"])
 
 
 class Bot:
