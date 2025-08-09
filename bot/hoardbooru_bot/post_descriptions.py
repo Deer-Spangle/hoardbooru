@@ -186,7 +186,7 @@ class UploadLink:
                             uploader_type = UploadLinkUploaderType.ARTIST
                             info_str = tag.primary_name
                         if tag.category == "characters":
-                            uploader_type = UploadLinkUploaderType.UNKNOWN
+                            uploader_type = UploadLinkUploaderType.OTHER_CHARACTER
                             info_str = tag.primary_name
         return cls(
             link=link_str,
