@@ -176,7 +176,7 @@ class UploadLink:
             "bsky.app": "bliuesky",
         }.get(parsed_url.netloc.removeprefix("www."))
         if website is None:
-            raise ValueError("Unrecognized website")
+            raise ValueError(f"Unrecognized domain: {parsed_url.netloc}")
         if website == "e621" and uploader_type == UploadLinkUploaderType.UNKNOWN:
             uploader_type = UploadLinkUploaderType.E621
         if info_str is None:
