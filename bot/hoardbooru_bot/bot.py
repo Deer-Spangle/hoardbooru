@@ -872,6 +872,13 @@ class Bot:
         logger.info(f"Got %sunuploaded command with query: {query_str}", "inverted " if uploaded_only else "")
         # Gather posts into which are uploaded where
         upload_states = self.upload_state_cache.list_by_state(self.hoardbooru, query_str, user_infix, refresh=True)
+        # Get list of posts in search
+        if uploaded_only:
+            posts_in_search = upload_states.posts_not_to_upload
+            button_text = "Categorise uploaded only"
+        else:
+            posts_in_search = upload_states.posts_to_upload
+            button_text = "Categorise unuploaded"
         # Post the message saying the current state of things.
         inverted_text = "<b>inverted</b> " if uploaded_only else ""
         msg_sections = [f"There are a total of {len(upload_states.all_posts)} posts matching this {inverted_text}search (\"{query_str}\")"]
@@ -885,7 +892,7 @@ class Bot:
         fa_section_lines += [f"- {len(upload_states.fa_not_uploading)} Not to upload"]
         fa_section_lines += [f"- {len(upload_states.fa_to_upload)} Remaining to upload"]
         msg_sections += ["\n".join(fa_section_lines)]
-        msg_sections += [f"In total, {len(upload_states.posts_to_upload)} to upload or categorise"]
+        msg_sections += [f"In total, {len(posts_in_search)} to upload or categorise"]
         msg_text = "\n\n".join(msg_sections)
         # Construct menu info and buttons
         menu_data = {
@@ -894,12 +901,6 @@ class Bot:
             "uploaded_only": str(uploaded_only),
         }
         menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only"])
-        if uploaded_only:
-            posts_in_search = upload_states.posts_not_to_upload
-            button_text = "Categorise uploaded only"
-        else:
-            posts_in_search = upload_states.posts_to_upload
-            button_text = "Categorise unuploaded"
         earliest_post = min(posts_in_search, key=lambda post: post.id_)
         buttons = [Button.inline(button_text, f"unuploaded:{earliest_post.id_}")]
         await event.reply(menu_data_str + msg_text, buttons=buttons, parse_mode="html")
