@@ -1020,7 +1020,7 @@ class Bot:
         commission_tags = [t for t in post.tags if t.category == "meta-commissions"]
         if len(commission_tags) == 1:
             commission_tag_name = commission_tags[0].primary_name
-            list_alts = upload_states.list_alts(commission_tag_name)
+            list_alts = upload_states.list_alts(commission_tag_name, upload_only)
             if len(list_alts) > 1:
                 alts_line = [f"This post is 1 of {len(list_alts)} alts in this list."]
         # Construct proposed data buttons and lines

@@ -136,8 +136,12 @@ class PostsByUploadedState:
             raise ValueError("Posts did not have user infix")
         self.all_post_states.append(PostUploadState(post, user_infix))
 
-    def list_alts(self, commission_tag: str) -> list[pyszuru.Post]:
-        return [p.post for p in self.all_post_states if p.commission_tag == commission_tag and p.to_upload]
+    def list_alts(self, commission_tag: str, uploaded_only: bool = False) -> list[pyszuru.Post]:
+        if uploaded_only:
+            check_func = lambda p: not p.to_upload
+        else:
+            check_func = lambda p: p.to_upload
+        return [p.post for p in self.all_post_states if p.commission_tag == commission_tag and check_func(p)]
 
     @classmethod
     def list_by_state(cls, api: pyszuru.API, query: str, user_infix: str) -> "PostsByUploadedState":
