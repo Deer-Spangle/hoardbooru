@@ -1015,17 +1015,22 @@ class Bot:
         total_to_upload = len(posts_to_upload)
         menu_data_str = hidden_data(menu_data, ["query", "user_infix", "uploaded_only", "post_id"])
         title_line = f"{menu_data_str}Showing menu for Post {post_id} (#{len(prev_posts) + 1}/{total_to_upload})"
+        # Parse post description data
+        post_description = get_post_description(post)
+        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         # Construct alts line
         alts_line = []
+        alts_buttons = []
         commission_tags = [t for t in post.tags if t.category == "meta-commissions"]
         if len(commission_tags) == 1:
             commission_tag_name = commission_tags[0].primary_name
             list_alts = upload_states.list_alts(commission_tag_name, upload_only)
             if len(list_alts) > 1:
                 alts_line = [f"This post is 1 of {len(list_alts)} alts in this list."]
+                if desc := gallery_upload_data.alt_description:
+                    alts_line += [f"Alt description: {desc}"]
+                alts_buttons = [[Button.inline("✏️ Alt description", "upload_propose:alt_description")]]
         # Construct proposed data buttons and lines
-        post_description = get_post_description(post)
-        gallery_upload_data = post_description.get_or_create_doc_matching_type(UploadDataPostDocument)
         proposed_lines = []
         edit_buttons = []
         if proposed_title := gallery_upload_data.proposed_title:
@@ -1042,7 +1047,7 @@ class Bot:
         links_buttons = [[Button.inline("🔗 Modify upload links", "upload_propose:links")]]
         # Construct message text
         lines = [title_line, url_line, *alts_line, *state_lines, *proposed_lines]
-        buttons = state_buttons + [edit_buttons] + links_buttons + [pagination_button_row]
+        buttons = state_buttons + alts_buttons + [edit_buttons] + links_buttons + [pagination_button_row]
         await msg.edit(
             text = "\n".join(lines),
             file = input_media,
@@ -1082,6 +1087,8 @@ class Bot:
         elif field == "tags":
             proposed_tags = gallery_upload_data.proposed_tags
             current_value = ", ".join(proposed_tags) if proposed_tags else None
+        elif field == "alt_description":
+            current_value = gallery_upload_data.alt_description
         elif field == "links":
             upload_links = gallery_upload_data.upload_links
             link_lines = []
@@ -1138,6 +1145,9 @@ class Bot:
             msg_text = event.message.text
             upload_data.proposed_tags = re.split(r"[\s,]+", msg_text)
             resp_text = f"Set tags to:\n{', '.join(upload_data.proposed_tags)}"
+        elif proposed_field == "alt_description":
+            upload_data.alt_description = event.message.text
+            resp_text = f"Set the alt description to: {upload_data.alt_description}"
         elif proposed_field == "links":
             msg_text = event.message.text
             links = links_in_msg(event.message)

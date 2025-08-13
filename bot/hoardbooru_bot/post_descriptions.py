@@ -252,6 +252,7 @@ class UploadLink:
 class UploadDataPostDocument(YamlPostDocument):
     """
     data_type: upload_data
+    alt_description: This alt has this and that
     proposed_data:
         title: This pic is wooo
         description: AAaaaa
@@ -304,6 +305,15 @@ class UploadDataPostDocument(YamlPostDocument):
         if "proposed_data" not in self.yaml_doc:
             self.yaml_doc["proposed_data"] = {}
         self.yaml_doc["proposed_data"]["tags"] = new_tags
+
+    @property
+    def alt_description(self) -> Optional[str]:
+        return self.yaml_doc.get("alt_description")
+
+    @alt_description.setter
+    def alt_description(self, new_description: str) -> None:
+        self.set_data_type()
+        self.yaml_doc["alt_description"] = new_description
 
     @property
     def upload_links(self) -> list[UploadLink]:
