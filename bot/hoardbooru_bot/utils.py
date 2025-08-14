@@ -7,6 +7,7 @@ import PIL
 import aiofiles.os
 import aiohttp
 from PIL import Image
+from telethon import events
 from telethon.tl.types import InputPhoto, InputDocument, InputMediaPhoto, InputMediaDocument, Message, \
     MessageEntityTextUrl
 import telethon.utils
@@ -136,3 +137,22 @@ def tick_cross_if_true(is_true: bool) -> str:
 
 def links_in_msg(msg: Message) -> list[str]:
     return [entity.url for entity, _text in msg.get_entities_text(MessageEntityTextUrl)]
+
+
+async def filter_reply_to_menu_with_fields(
+        evt: events.NewMessage.Event,
+        fields: list[str],
+        precise: bool = False,
+) -> bool:
+    if not evt.message.text:
+        return False
+    original_msg = await evt.get_reply_message()
+    if not original_msg:
+        return False
+    menu_data = parse_hidden_data(original_msg)
+    if not menu_data:
+        return False
+    if precise:
+        return set(fields) == set(menu_data.keys())
+    return all(key in menu_data for key in fields)
+
