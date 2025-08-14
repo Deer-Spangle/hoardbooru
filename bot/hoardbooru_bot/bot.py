@@ -1,8 +1,6 @@
-import asyncio
 import glob
-import itertools
 import logging
-from typing import Optional, Coroutine, Any
+from typing import Optional
 from zipfile import ZipFile, ZipInfo
 
 import aiofiles
@@ -11,18 +9,17 @@ from prometheus_client import Gauge, start_http_server
 from telethon import TelegramClient, events, Button
 from telethon.errors import MessageNotModifiedError
 from telethon.events import StopPropagation
-from telethon.tl.custom import InlineResult, InlineBuilder
 from telethon.tl.patched import Message
-from telethon.tl.types import PeerChannel, DocumentAttributeFilename, UpdateBotInlineSend
+from telethon.tl.types import PeerChannel, DocumentAttributeFilename
 
 from hoardbooru_bot.cache import TelegramMediaCache
-from hoardbooru_bot.database import Database, CacheEntry
+from hoardbooru_bot.database import Database
+from hoardbooru_bot.func_inline_search import InlineSearchFunctionality
 from hoardbooru_bot.func_unuploaded import UnuploadedFunctionality
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
-from hoardbooru_bot.utils import file_ext, temp_sandbox_file, cache_entry_to_input_doc, cache_entry_to_input_media_doc, \
-    filter_reply_to_menu_with_fields
+from hoardbooru_bot.utils import file_ext, temp_sandbox_file, filter_reply_to_menu_with_fields
 from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.posted_state import UploadStateCache
@@ -56,8 +53,6 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 
 class Bot:
-    MAX_INLINE_ANSWERS = 30
-    MAX_INLINE_FRESH_MEDIA = 1
     MAX_TAG_BUTTON_LINES = 7
 
     def __init__(self, config: dict) -> None:
@@ -78,6 +73,7 @@ class Bot:
         self.popularity_cache: Optional[PopularityCache] = None
         self.upload_state_cache = UploadStateCache()
         self.functionality_unuploaded = UnuploadedFunctionality(self)
+        self.functionality_inline_search = InlineSearchFunctionality(self)
 
     async def run(self) -> None:
         start_time.set_to_current_time()
@@ -103,7 +99,6 @@ class Bot:
             self.populate_cache,
             events.NewMessage(pattern="/populate", incoming=True, from_users=self.trusted_user_ids()),
         )
-        self.client.add_event_handler(self.inline_search, events.InlineQuery(users=self.trusted_user_ids()))
         self.client.add_event_handler(
             self.upload_document,
             events.NewMessage(func=lambda e: filter_document(e), incoming=True, from_users=self.trusted_user_ids()),
@@ -125,9 +120,8 @@ class Bot:
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
         self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
-        self.client.add_event_handler(self.inline_sent_callback, events.Raw(UpdateBotInlineSend))
-        self.client.add_event_handler(self.spoiler_button_callback, events.CallbackQuery(pattern="spoiler:"))
         self.functionality_unuploaded.register_callbacks(self.client)
+        self.functionality_inline_search.register_callbacks(self.client)
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -160,114 +154,6 @@ class Bot:
     async def start(self, event: events.NewMessage.Event) -> None:
         await event.reply("Hey there! I'm not a very good bot yet, I'm quite early in development. I'm gonna be a bot to interface with hoardbooru")
         raise events.StopPropagation
-
-    async def _hoardbooru_post_to_inline_answer(
-            self,
-            builder: InlineBuilder,
-            post: pyszuru.Post,
-            inline_params: InlineParams,
-    ) -> InlineResult:
-        cache_entry = await self.media_cache.store_in_cache(post, inline_params.file)
-        return await self._cache_entry_to_inline_answer(builder, cache_entry, inline_params)
-
-    async def _cache_entry_to_inline_answer(
-            self,
-            builder: InlineBuilder,
-            cache_entry: CacheEntry,
-            inline_params: InlineParams,
-    ) -> InlineResult:
-        input_media = cache_entry_to_input_doc(cache_entry)
-        answer_id = str(cache_entry.post_id)
-        # If thumbnail is cached, add a button
-        buttons = None
-        caption = None
-        if cache_entry.is_thumbnail:
-            # TODO: remove this, unused
-            buttons = [Button.inline("Click for full res", f"neaten_me:{cache_entry.post_id}")]
-        if inline_params.spoiler:
-            buttons = [Button.inline("Spoilerise", f"spoiler:{cache_entry.post_id}")]
-            answer_id += ":spoiler"
-        if inline_params.link:
-            caption = self.hoardbooru_post_url(cache_entry.post_id)
-        # Build the inline answer
-        if cache_entry.is_photo:
-            return await builder.photo(
-                file=input_media,
-                id=answer_id,
-                buttons=buttons,
-                parse_mode="html",
-                text=caption,
-            )
-        post_file_ext = file_ext(cache_entry.file_url)
-        mime_type = {
-            "mp4": "video/mp4",
-            "gif": "video/mp4",
-            "webm": "video/mp4",
-            "mp3": "audio/mp3",
-            "pdf": "application/pdf",
-        }.get(post_file_ext)
-        return await builder.document(
-            file=input_media,
-            title=f"{cache_entry.post_id}.{post_file_ext}",
-            mime_type=mime_type,
-            type="gif" if mime_type == "video/mp4" else None,
-            id=answer_id,
-            buttons=buttons,
-            parse_mode="html",
-            text=caption,
-        )
-
-    async def inline_search(self, event: events.InlineQuery.Event) -> None:
-        inline_query = event.text.strip()
-        inline_offset = int(event.offset or "0")
-        builder = event.builder
-        logger.info("Received inline query: %s, offset: %s", inline_query, inline_offset)
-        # Add blocked tags
-        user = self.trusted_user_by_id(event.sender_id)
-        if user is None:
-            return
-        inline_query += "".join(f" -{tag}" for tag in user.blocked_tags)
-        logger.info("Query with blocked tags is: %s", inline_query)
-        query_params = InlineParams()
-        inline_query = query_params.parse_inline_query(inline_query)
-        # Get the biggest possible list of posts
-        post_generator = self.hoardbooru.search_post(inline_query)
-        posts = list(itertools.islice(post_generator, inline_offset, inline_offset + self.MAX_INLINE_ANSWERS))
-        logger.info("Found %s posts for inline query", len(posts))
-        if len(posts) == 0 and inline_offset == 0:
-            await self.media_cache.log_in_cache_channel(f"Query returned zero posts: <pre>{inline_query}</pre>")
-            logger.info("Logged zero-result query to cache channel")
-        # Gather any cache entries which exist
-        cache_entries = await asyncio.gather(*[
-            self.media_cache.load_cache(post.id_, query_params.file)
-            for post in posts
-        ])
-        logger.info(
-            "Found %s cache entries for inline query",
-            len([c for c in cache_entries if c is not None]),
-        )
-        # Convert to answers, fetching fresh ones where needed, up to limit
-        inline_answers: list[Coroutine[Any, Any, InlineResult]] = []
-        num_fresh_media = 0
-        for post, cache_entry in zip(posts, cache_entries):
-            if post.content.endswith(".webm"):
-                logger.warning("Skipping webm file, post ID %s", post.id_)
-                continue
-            if cache_entry is None:
-                if num_fresh_media >= self.MAX_INLINE_FRESH_MEDIA:
-                    break
-                num_fresh_media += 1
-                inline_answers.append(self._hoardbooru_post_to_inline_answer(builder, post, query_params))
-            else:
-                inline_answers.append(self._cache_entry_to_inline_answer(builder, cache_entry, query_params))
-        # Send the answers as a gallery
-        next_offset = inline_offset + len(inline_answers)
-        logger.info("Sending %s results for query: %s", len(inline_answers), inline_query)
-        await event.answer(
-            await asyncio.gather(*inline_answers),
-            next_offset=str(next_offset),
-            gallery=True,
-        )
 
     async def _upload_to_hoardbooru(self, file_path: str, file_name: Optional[str]) -> pyszuru.FileToken:
         ext = None
@@ -682,41 +568,6 @@ class Bot:
             lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
         await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
         await progress_msg.delete()
-        raise StopPropagation
-
-    async def inline_sent_callback(self, event: UpdateBotInlineSend) -> None:
-        logger.info("Received callback for sent inline message with answer ID: '%s'", event.id)
-        if event.msg_id is None:
-            # If the message is sent without a button, there's no message ID provided, so we can't do much.
-            logger.info("Inline answer sent without a button. No action to perform. Answer ID: %s", event.id)
-            raise StopPropagation
-        if not event.id.endswith(":spoiler"):
-            logger.warning("Unrecognised inline answer ID, does not match expected format: %s", event.id)
-            raise StopPropagation
-        post_id = int(event.id.removesuffix(":spoiler"))
-        cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_media = cache_entry_to_input_media_doc(cache_entry)
-        input_media.spoiler = True
-        await self.client.edit_message(
-            event.msg_id,
-            file=input_media,
-            buttons=None,
-        )
-        raise StopPropagation
-
-    async def spoiler_button_callback(self, event: events.CallbackQuery.Event) -> None:
-        if not event.data.startswith(b"spoiler:"):
-            return
-        logger.warning("Inline answer spoiler button was pressed with data: '%s'", event.data)
-        post_id = int(event.data.decode().removeprefix("spoiler:"))
-        cache_entry = await self.media_cache.load_cache(post_id, False)
-        input_media = cache_entry_to_input_media_doc(cache_entry)
-        input_media.spoiler = True
-        await self.client.edit_message(
-            event.original_update.msg_id,
-            file=input_media,
-            buttons=None,
-        )
         raise StopPropagation
 
     async def populate_cache(self, event: events.NewMessage.Event) -> None:

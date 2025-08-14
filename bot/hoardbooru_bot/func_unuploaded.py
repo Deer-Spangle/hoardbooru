@@ -3,11 +3,11 @@ import logging
 import re
 import typing
 
-import pyszuru
 from telethon import TelegramClient, events, Button
 from telethon.events import StopPropagation
 from telethon.tl.patched import Message
 
+from hoardbooru_bot.functionality import Functionality
 from hoardbooru_bot.hidden_data import parse_hidden_data, hidden_data
 from hoardbooru_bot.post_descriptions import set_post_description, UploadLinkUploaderType, get_post_description, \
     UploadDataPostDocument, UploadLink
@@ -16,8 +16,6 @@ from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.utils import filter_reply_to_menu_with_fields, tick_cross_if_true, cache_entry_to_input_media_doc, \
     tick_if_true, bold_if_true, links_in_msg
 
-if typing.TYPE_CHECKING:
-    from hoardbooru_bot.bot import Bot
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +28,7 @@ async def filter_reply_to_upload_link_menu(evt: events.NewMessage.Event) -> bool
     return await filter_reply_to_menu_with_fields(evt, ["query", "user_infix", "uploaded_only", "post_id", "proposed_field", "upload_link_num"])
 
 
-class UnuploadedFunctionality:
-    def __init__(self, bot: "Bot") -> None:
-        self.bot = bot
-
-    @property
-    def hoardbooru(self) -> "pyszuru.API":
-        return self.bot.hoardbooru
+class UnuploadedFunctionality(Functionality):
 
     def register_callbacks(self, client: TelegramClient) -> None:
         client.add_event_handler(
