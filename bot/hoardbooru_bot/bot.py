@@ -15,12 +15,12 @@ from telethon.tl.types import PeerChannel, DocumentAttributeFilename
 from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database
 from hoardbooru_bot.func_inline_search import InlineSearchFunctionality
+from hoardbooru_bot.func_populate import PopulateFunctionality
 from hoardbooru_bot.func_unuploaded import UnuploadedFunctionality
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, DEFAULT_TAGGING_TAGS, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import file_ext, temp_sandbox_file, filter_reply_to_menu_with_fields
-from hoardbooru_bot.inline_params import InlineParams
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.posted_state import UploadStateCache
 
@@ -74,6 +74,7 @@ class Bot:
         self.upload_state_cache = UploadStateCache()
         self.functionality_unuploaded = UnuploadedFunctionality(self)
         self.functionality_inline_search = InlineSearchFunctionality(self)
+        self.functionality_populate = PopulateFunctionality(self)
 
     async def run(self) -> None:
         start_time.set_to_current_time()
@@ -96,10 +97,6 @@ class Bot:
             events.NewMessage(pattern="/unfinished", incoming=True, from_users=self.trusted_user_ids()),
         )
         self.client.add_event_handler(
-            self.populate_cache,
-            events.NewMessage(pattern="/populate", incoming=True, from_users=self.trusted_user_ids()),
-        )
-        self.client.add_event_handler(
             self.upload_document,
             events.NewMessage(func=lambda e: filter_document(e), incoming=True, from_users=self.trusted_user_ids()),
         )
@@ -120,8 +117,9 @@ class Bot:
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
         self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
-        self.functionality_unuploaded.register_callbacks(self.client)
+        self.functionality_populate.register_callbacks(self.client)
         self.functionality_inline_search.register_callbacks(self.client)
+        self.functionality_unuploaded.register_callbacks(self.client)
         # Start prometheus server
         start_http_server(PROM_PORT)
         # Start listening
@@ -568,77 +566,4 @@ class Bot:
             lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
         await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
         await progress_msg.delete()
-        raise StopPropagation
-
-    async def populate_cache(self, event: events.NewMessage.Event) -> None:
-        if not event.message.text.startswith("/populate"):
-            return
-        logger.info("Populating cache")
-        # Parse the input
-        populate_count = 10
-        populate_search = []
-        populate_files = True
-        populate_photos = True
-        populate_input = event.message.text.removeprefix("/populate").strip().split()
-        for populate_term in populate_input:
-            try:
-                populate_count = int(populate_term)
-                continue
-            except ValueError:
-                pass
-            if populate_term in InlineParams.FILE_TERMS:
-                populate_files = True
-                populate_photos = False
-                continue
-            if populate_term.startswith("-") and populate_term.removeprefix("-") in InlineParams.FILE_TERMS:
-                populate_files = False
-                populate_photos = True
-                continue
-            populate_search.append(populate_term)
-        logger.info(
-            "Aiming to populate %s items, (files=%s, photos=%s) for search query: %s",
-            populate_count, populate_files, populate_photos, " ".join(populate_search)
-        )
-        # Work out how many matching posts on hoardbooru
-        cache_progress_msg = await event.reply("⏳ Calculating cache size")
-        posts = []
-        for post in self.hoardbooru.search_post(" ".join(populate_search), page_size=100):
-            posts.append(post)
-        cache_ids = None
-        if populate_search:
-            cache_ids = [p.id_ for p in posts]
-        cache_size = await self.media_cache.cache_size(cache_ids, populate_files, populate_photos)
-        expected_cache_size = len(posts) * (populate_files + populate_photos)
-        if cache_size == expected_cache_size:
-            await event.reply(f"There are {len(posts)} posts on hoardbooru. The cache is full, at {cache_size} entries")
-            await cache_progress_msg.delete()
-            raise StopPropagation
-        await event.reply(
-            f"There are {len(posts)} posts on hoardbooru. Cache size is {cache_size}/{expected_cache_size}"
-        )
-        await cache_progress_msg.delete()
-        # Populate the cache
-        progress_msg = await event.reply(f"⏳ Populating {populate_count} cache entries")
-        populated = 0
-        for post in posts:
-            # Check if we've populated enough
-            if populated >= populate_count:
-                break
-            # Populate photo
-            if populate_photos:
-                if await self.media_cache.load_cache(post.id_, False) is None:
-                    await self.media_cache.store_in_cache(post, False)
-                    populated += 1
-            # Check again if we've populated enough
-            if populated >= populate_count:
-                break
-            # Populate file
-            if populate_files:
-                if await self.media_cache.load_cache(post.id_, True) is None:
-                    await self.media_cache.store_in_cache(post, True)
-                    populated += 1
-        # Post the completion message
-        cache_size = await self.media_cache.cache_size(cache_ids, populate_files, populate_photos)
-        await progress_msg.delete()
-        await event.reply(f"Populated {populated} cache entries. Cache size: {cache_size}/{expected_cache_size}")
         raise StopPropagation
