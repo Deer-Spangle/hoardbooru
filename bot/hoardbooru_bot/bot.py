@@ -16,6 +16,7 @@ from hoardbooru_bot.cache import TelegramMediaCache
 from hoardbooru_bot.database import Database
 from hoardbooru_bot.func_inline_search import InlineSearchFunctionality
 from hoardbooru_bot.func_populate import PopulateFunctionality
+from hoardbooru_bot.func_unfinished import UnfinishedFunctionality
 from hoardbooru_bot.func_unuploaded import UnuploadedFunctionality
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
 from hoardbooru_bot.popularity_cache import PopularityCache
@@ -75,6 +76,7 @@ class Bot:
         self.functionality_unuploaded = UnuploadedFunctionality(self)
         self.functionality_inline_search = InlineSearchFunctionality(self)
         self.functionality_populate = PopulateFunctionality(self)
+        self.functionality_unfinished = UnfinishedFunctionality(self)
 
     async def run(self) -> None:
         start_time.set_to_current_time()
@@ -91,10 +93,6 @@ class Bot:
         self.client.add_event_handler(self.boop, events.NewMessage(pattern="/beep", incoming=True))
         self.client.add_event_handler(
             self.tag_init, events.NewMessage(pattern="/tag", incoming=True, from_users=self.trusted_user_ids())
-        )
-        self.client.add_event_handler(
-            self.list_unfinished,
-            events.NewMessage(pattern="/unfinished", incoming=True, from_users=self.trusted_user_ids()),
         )
         self.client.add_event_handler(
             self.upload_document,
@@ -117,6 +115,7 @@ class Bot:
         self.client.add_event_handler(self.tag_phase_callback, events.CallbackQuery(pattern="tag_phase:"))
         self.client.add_event_handler(self.tag_order_callback, events.CallbackQuery(pattern="tag_order:"))
         self.client.add_event_handler(self.tag_page_callback, events.CallbackQuery(pattern="tag_page:"))
+        self.functionality_unfinished.register_callbacks(self.client)
         self.functionality_populate.register_callbacks(self.client)
         self.functionality_inline_search.register_callbacks(self.client)
         self.functionality_unuploaded.register_callbacks(self.client)
@@ -525,45 +524,3 @@ class Bot:
         await event.reply(f"Added {'new' if tag_is_new else 'existing'} ({tag_category}) tag: {tag_name}")
         logger.info("Updating tag phase menu")
         await self.post_tag_phase_menu(menu_msg, menu_data)
-
-    async def list_unfinished(self, event: events.NewMessage.Event) -> None:
-        if not event.message.text.startswith("/unfinished"):
-            return
-        logger.info("Listing unfinished commissions")
-        # Send in progress message
-        progress_msg = await event.message.reply("Checking for unfinished commissions")
-        # List all commission tags
-        logger.debug("Listing all commission tags")
-        comm_tags = self.hoardbooru.search_tag("category:meta-commissions", page_size=100)
-        comm_tag_names = [t.primary_name for t in comm_tags]
-        unfinished_comms = comm_tag_names
-        # List all final posts
-        logger.debug("Listing all final posts to check against commission tags")
-        for post in self.hoardbooru.search_post("status\\:final", page_size=100):
-            for tag in post.tags:
-                if tag.primary_name in unfinished_comms:
-                    unfinished_comms.remove(tag.primary_name)
-        # Find artists for each
-        logger.debug("Gathering artists and characters for commission info")
-        unfinished_artists: dict[str, set[str]] = {}
-        unfinished_characters: dict[str, set[str]] = {}
-        for comm_tag in unfinished_comms:
-            unfinished_artists[comm_tag] = set()
-            unfinished_characters[comm_tag] = set()
-            for post in self.hoardbooru.search_post(comm_tag, page_size=100):
-                for tag in post.tags:
-                    if tag.category == "artists":
-                        unfinished_artists[comm_tag].add(tag.primary_name)
-                    if tag.category == "our_characters":
-                        unfinished_characters[comm_tag].add(tag.primary_name)
-        # List all the unfinished tags
-        lines = []
-        for unfinished_tag, artists in unfinished_artists.items():
-            our_characters = unfinished_characters[unfinished_tag]
-            link_url = f"{self.hoardbooru_url}/posts/query={unfinished_tag}"
-            link_text = unfinished_tag.removeprefix("commission_").lstrip("0")
-            link_text += " (" + ", ".join(our_characters) + " by " + ", ".join(artists) + ")"
-            lines.append(f"- <a href=\"{link_url}\">{link_text}</a>")
-        await event.message.reply("Unfinished commission tags:\n" + "\n".join(lines), parse_mode="html")
-        await progress_msg.delete()
-        raise StopPropagation
