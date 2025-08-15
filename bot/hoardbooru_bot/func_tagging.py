@@ -1,5 +1,5 @@
 import logging
-
+from typing import Optional, TYPE_CHECKING
 
 import pyszuru
 from telethon import TelegramClient, events, Button
@@ -9,8 +9,12 @@ from telethon.tl.patched import Message
 
 from hoardbooru_bot.functionality import Functionality
 from hoardbooru_bot.hidden_data import hidden_data, parse_hidden_data
+from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.tag_phases import PHASES, TAGGING_TAG_FORMAT, SPECIAL_BUTTON_CALLBACKS
 from hoardbooru_bot.utils import filter_reply_to_menu_with_fields
+
+if TYPE_CHECKING:
+    from hoardbooru_bot.bot import Bot
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +26,10 @@ async def filter_reply_to_tag_menu(evt: events.NewMessage.Event) -> bool:
 
 class TaggingFunctionality(Functionality):
     MAX_TAG_BUTTON_LINES = 7
+
+    def __init__(self, bot: "Bot") -> None:
+        super().__init__(bot)
+        self.popularity_cache: Optional[PopularityCache] = None
 
     def register_callbacks(self, client: TelegramClient) -> None:
         client.add_event_handler(
@@ -223,7 +231,7 @@ class TaggingFunctionality(Functionality):
                 tag.popularity = 0
             popularity_filters = phase_cls.popularity_filter_tags(post) or [None]
             for popularity_filter in popularity_filters:
-                popularity_cache = self.bot._build_popularity_cache().filter(popularity_filter)
+                popularity_cache = self._build_popularity_cache().filter(popularity_filter)
                 for tag in tags:
                     tag.popularity += popularity_cache.popularity(tag.tag_name)
             tags = sorted(tags, key=lambda t: (-t.popularity, t.tag_name))
@@ -264,3 +272,9 @@ class TaggingFunctionality(Functionality):
         except MessageNotModifiedError:
             logger.info("Tag phase menu had no change, so message could not be updated")
             pass
+
+    def _build_popularity_cache(self) -> PopularityCache:
+        if self.popularity_cache is None or self.popularity_cache.out_of_date():
+            logger.info("Building new popularity cache")
+            self.popularity_cache = PopularityCache.create_cache(self.hoardbooru)
+        return self.popularity_cache

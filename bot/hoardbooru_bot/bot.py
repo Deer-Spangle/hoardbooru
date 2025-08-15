@@ -14,7 +14,6 @@ from hoardbooru_bot.func_tagging import TaggingFunctionality
 from hoardbooru_bot.func_unfinished import UnfinishedFunctionality
 from hoardbooru_bot.func_unuploaded import UnuploadedFunctionality
 from hoardbooru_bot.func_upload import UploadFunctionality
-from hoardbooru_bot.popularity_cache import PopularityCache
 from hoardbooru_bot.users import TrustedUser
 from hoardbooru_bot.posted_state import UploadStateCache
 
@@ -46,7 +45,6 @@ class Bot:
         cache_channel = PeerChannel(self.config["cache_channel"])
         self.media_cache = TelegramMediaCache(self.database, self.client, cache_channel)
         self.hoardbooru: Optional[pyszuru.API] = None
-        self.popularity_cache: Optional[PopularityCache] = None
         self.upload_state_cache = UploadStateCache()
         self.functionality_upload = UploadFunctionality(self)
         self.functionality_tagging = TaggingFunctionality(self)
@@ -106,9 +104,3 @@ class Bot:
     async def start(self, event: events.NewMessage.Event) -> None:
         await event.reply("Hey there! I'm not a very good bot yet, I'm quite early in development. I'm gonna be a bot to interface with hoardbooru")
         raise events.StopPropagation
-
-    def _build_popularity_cache(self) -> PopularityCache:
-        if self.popularity_cache is None or self.popularity_cache.out_of_date():
-            logger.info("Building new popularity cache")
-            self.popularity_cache = PopularityCache.create_cache(self.hoardbooru)
-        return self.popularity_cache
