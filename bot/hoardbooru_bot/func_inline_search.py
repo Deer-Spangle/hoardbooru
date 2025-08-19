@@ -141,6 +141,11 @@ class InlineSearchFunctionality(Functionality):
             answer_id += ":spoiler"
         if inline_params.link:
             caption = self.bot.hoardbooru_post_url(cache_entry.post_id)
+        if inline_params.caption:
+            caption = inline_params.caption
+            if "{link}" in caption:
+                post_url = self.bot.hoardbooru_post_url(cache_entry.post_id)
+                caption = caption.replace("{link}", post_url)
         # Build the inline answer
         if cache_entry.is_photo:
             return await builder.photo(
