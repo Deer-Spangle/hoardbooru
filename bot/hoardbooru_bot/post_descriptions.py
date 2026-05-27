@@ -173,7 +173,7 @@ class UploadLink:
             "furrynetwork.com": "furrynetwork",
             "inkbunny.net": "inkbunny",
             "twitter.com": "twitter",
-            "bsky.app": "bliuesky",
+            "bsky.app": "bluesky",
         }.get(parsed_url.netloc.removeprefix("www."))
         if website is None:
             ignored_urls = ["lens.google.com", "saucenao.com", "yandex.com", "tineye.com", "kheina.com", "derpibooru.org"]
